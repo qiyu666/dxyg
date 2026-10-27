@@ -813,10 +813,11 @@ func _build_top_bar(vp: Vector2) -> void:
 		_add_button(_top_bar, "关卡", Vector2(vp.x - 220, 8), 90, 40, func() -> void: _open_level_picker())
 		_add_button(_top_bar, "菜单", Vector2(vp.x - 120, 8), 90, 40, func() -> void: want_menu.emit())
 	else:
-		_add_button(_top_bar, "放弃", Vector2(vp.x - 120, 8), 90, 40, func() -> void:
+		var cb_abandon := func():
 			_over = true
 			_save_home_if_needed()
-			finished.emit(false, {}))
+			finished.emit(false, {})
+		_add_button(_top_bar, "放弃", Vector2(vp.x - 120, 8), 90, 40, cb_abandon)
 
 
 func _build_bottom_bar(vp: Vector2, parent: Control) -> void:
@@ -828,8 +829,7 @@ func _build_bottom_bar(vp: Vector2, parent: Control) -> void:
 	# 进化按钮（关卡/家都可）
 	_add_button(parent, "进化", Vector2(4, y + 64), vp.x / 2 - 8, 44, func() -> void: _show_panel("evolve"))
 	# 帮助
-	_add_button(parent, "说明", Vector2(vp.x / 2 + 4, y + 64), vp.x / 2 - 8, 44, func() -> void:
-		_toast("蚁后产卵→工蚁取卵进空孵化室→卵→白幼虫→黄蛹→耗食物羽化；兵蚁不搬卵")
+	_add_button(parent, "说明", Vector2(vp.x / 2 + 4, y + 64), vp.x / 2 - 8, 44, func() -> void: _toast("蚁后产卵→工蚁取卵进空孵化室→卵→白幼虫→黄蛹→耗食物羽化；兵蚁不搬卵"))
 
 
 func _build_build_panel() -> void:
@@ -842,24 +842,26 @@ func _build_build_panel() -> void:
 	vb.add_child(row1)
 	for t in [GameConst.SOLDIER_HATCH, GameConst.WORKER_HATCH, GameConst.SPEED_BLOCK, GameConst.FOOD_STORAGE]:
 		var btn := _tool_button(_label_for_tool(t))
-		btn.pressed.connect(func() -> void:
-			_build_tool = t
+		var tool: String = t
+		var cb_tool := func():
+			_build_tool = tool
 			_mark_tool(btn)
-			_refresh_active_tool())
+			_refresh_active_tool()
+		btn.pressed.connect(cb_tool)
 		row1.add_child(btn)
-		if t == _build_tool:
-			_build_tool = t
 	var dig := _tool_button("挖掘")
-	dig.pressed.connect(func() -> void:
+	var cb_dig := func():
 		_build_tool = "dig"
 		_mark_tool(dig)
-		_refresh_active_tool())
+		_refresh_active_tool()
+	dig.pressed.connect(cb_dig)
 	row1.add_child(dig)
 	var up := _tool_button("升级")
-	up.pressed.connect(func() -> void:
+	var cb_up := func():
 		_build_tool = "upgrade"
 		_mark_tool(up)
-		_refresh_active_tool())
+		_refresh_active_tool()
+	up.pressed.connect(cb_up)
 	row1.add_child(up)
 	var hint := _add_label(p, "点选工具后在地图上操作。食物：兵蚁50/工蚁5/加速5/储存5；升级=建造花费", Vector2(8, 56))
 	hint.add_theme_font_size_override("font_size", 16)
@@ -896,10 +898,11 @@ func _build_pheromone_panel() -> void:
 	slider.max_value = 40
 	slider.value = 0
 	slider.custom_minimum_size = Vector2(0, 30)
-	slider.value_changed.connect(func(v: float) -> void:
+	var cb_ph := func(v: float):
 		if _selected_team >= 0:
-		teams[_selected_team].max_mobilize = int(v)
-		maxl.text = "出动:不限" if int(v) == 0 else ("出动:%d" % int(v)))
+			teams[_selected_team].max_mobilize = int(v)
+		maxl.text = "出动:不限" if int(v) == 0 else ("出动:%d" % int(v))
+	slider.value_changed.connect(cb_ph)
 	vb.add_child(slider)
 	_ph_slider = slider
 	_ph_atk = atk
@@ -1140,7 +1143,8 @@ func _refresh_info() -> void:
 	# 简化：在信息面板显示选中格信息
 	var p: Control = _panels["info"]
 	for ch in p.get_children():
-		ch.queue_free()	var lines: Array = []
+		ch.queue_free()
+	var lines: Array = []
 	lines.append("蚁后可取卵 %d（兵蚁不搬卵；蛹羽化需 %d 食物）" % [queen_eggs, int(GameConst.HATCH_FOOD_COST)])
 	if _selected_hex == Vector2i(-99, -99) or not grid.has(_selected_hex):
 		lines.append("点击地图选择一个格子/建筑。")
