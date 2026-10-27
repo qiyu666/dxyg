@@ -508,11 +508,11 @@ func _recompute_cap() -> void:
 
 func enemy_near(c: Vector2i, d: int) -> Enemy:
 	var best: Enemy = null
-	var bd := 999
+	var bd: int = 999
 	for e in enemies:
 		if not e.alive:
 			continue
-		var dist := HexMath.distance(c, grid.screen_to_hex(e.global_position))
+		var dist: int = HexMath.distance(c, grid.screen_to_hex((e as Enemy).global_position))
 		if dist <= d and dist < bd:
 			bd = dist
 			best = e
@@ -520,16 +520,16 @@ func enemy_near(c: Vector2i, d: int) -> Enemy:
 
 
 func nearest_enemy(c: Vector2i) -> Enemy:
-	return _nearest_in(c, enemies)
+	return _nearest_in(c, enemies) as Enemy
 
 
 func nearest_ant(world: Vector2, within_px: float) -> Ant:
 	var best: Ant = null
-	var bd := within_px
+	var bd: float = within_px
 	for a in ants:
 		if not a.alive:
 			continue
-		var d := a.global_position.distance_to(world)
+		var d: float = (a as Ant).global_position.distance_to(world)
 		if d < bd:
 			bd = d
 			best = a
@@ -538,11 +538,11 @@ func nearest_ant(world: Vector2, within_px: float) -> Ant:
 
 func enemy_near_ally_ant(c: Vector2i, d: int) -> Ant:
 	var best: Ant = null
-	var bd := 999
+	var bd: int = 999
 	for a in ants:
 		if not a.alive:
 			continue
-		var dist := HexMath.distance(c, grid.screen_to_hex(a.global_position))
+		var dist: int = HexMath.distance(c, grid.screen_to_hex((a as Ant).global_position))
 		if dist <= d and dist < bd:
 			bd = dist
 			best = a
@@ -550,38 +550,40 @@ func enemy_near_ally_ant(c: Vector2i, d: int) -> Ant:
 
 
 func enemy_target_hex(e: Enemy) -> Vector2i:
-	var c := e.grid_hex
-	var a := _nearest_in(c, ants)
+	var c: Vector2i = e.grid_hex
+	var a: Node2D = _nearest_in(c, ants)
 	if a != null:
 		return grid.screen_to_hex(a.global_position)
 	var f: Vector2i = nearest_food(c)
-	if f != null:
+	if f != GameConst.NO_CELL:
 		return f
 	return home_cell()
 
 
 func nearest_food(c: Vector2i) -> Vector2i:
-	var best: Vector2i = null
-	var bd := 999
+	var best: Vector2i = GameConst.NO_CELL
+	var bd: int = 999
 	for fc in grid.food_cells():
-		var d := HexMath.distance(c, fc)
+		var cell: Vector2i = fc
+		var d: int = HexMath.distance(c, cell)
 		if d < bd:
 			bd = d
-			best = fc
+			best = cell
 	return best
 
 
-func _nearest_in(c: Vector2i, list: Array) -> Node:
-	var best: Node = null
-	var bd := 999
+func _nearest_in(c: Vector2i, list: Array) -> Node2D:
+	var best: Node2D = null
+	var bd: int = 999
 	for u in list:
 		if not u.alive:
 			continue
-		var uhex := grid.screen_to_hex(u.global_position)
-		var d := HexMath.distance(c, uhex)
+		var unode: Node2D = u
+		var uhex: Vector2i = grid.screen_to_hex(unode.global_position)
+		var d: int = HexMath.distance(c, uhex)
 		if d < bd:
 			bd = d
-			best = u
+			best = unode
 	return best
 
 
