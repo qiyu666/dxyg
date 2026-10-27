@@ -74,8 +74,9 @@ jobs:
           wget -O tpl.zip "https://github.com/godotengine/godot-builds/releases/download/${GODOT_TAG}/${TPL}"
           mkdir -p tpl_extract
           unzip -q tpl.zip -d tpl_extract
-          mkdir -p "$HOME/.local/share/godot/export_templates/${GODOT_TAG}"
-          cp -r tpl_extract/templates/* "$HOME/.local/share/godot/export_templates/${GODOT_TAG}/"
+          # 导出模板目录名用「点号」：4.7.1.stable（与 Godot 引擎版本目录一致）
+          mkdir -p "$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable"
+          cp -r tpl_extract/templates/* "$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable/"
 
       - name: Import project & generate Gradle project
         run: |
