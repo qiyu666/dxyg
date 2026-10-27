@@ -98,3 +98,5 @@ const QUEEN_EGG_INTERVAL := 4.0
 const QUEEN_EGG_CAP := 4
 ## 活跃蚁死亡后，孵化室内在发育的蚁加速孵化（时长缩短）
 const HATCH_FAST_FACTOR := 0.5
+## 表示“无”六边形格的哨兵值（Vector2i 是值类型，不能为 null）
+const NO_CELL := Vector2i(-9999, -9999)
