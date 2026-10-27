@@ -86,7 +86,7 @@ static func ring(center: Vector2i, radius: int) -> Array:
 	var out: Array = []
 	var cursor := center + Vector2i(0, -radius)
 	for side in range(6):
-		var step := NEIGHBORS[side]
+		var step: Vector2i = NEIGHBORS[side]
 		for _i in range(radius):
 			out.append(cursor)
 			cursor += step
