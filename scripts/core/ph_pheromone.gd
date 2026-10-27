@@ -21,7 +21,9 @@ func _init(p_index: int) -> void:
 
 
 func label() -> String:
-	return GameConst.TEAM_NAMES.get(index, "?")
+	if index >= 0 and index < GameConst.TEAM_NAMES.size():
+		return GameConst.TEAM_NAMES[index]
+	return "?"
 
 
 func assign_hatch(c: Vector2i) -> void:
