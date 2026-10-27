@@ -15,19 +15,19 @@ static func hex_to_pos(a: Vector2i, size: float) -> Vector2:
 
 
 static func pos_to_hex(world_pos: Vector2, size: float) -> Vector2i:
-	var qf := (SQRT3 / 3.0 * world_pos.x - (1.0 / 3.0) * world_pos.y) / size
-	var rf := (2.0 / 3.0 * world_pos.y) / size
+	var qf: float = (SQRT3 / 3.0 * world_pos.x - (1.0 / 3.0) * world_pos.y) / size
+	var rf: float = (2.0 / 3.0 * world_pos.y) / size
 	return _axial_round(qf, rf)
 
 
 static func _axial_round(qf: float, rf: float) -> Vector2i:
-	var sf := -qf - rf
-	var qx := round(qf)
-	var rx := round(rf)
-	var sx := round(sf)
-	var qd := absf(qx - qf)
-	var rd := absf(rx - rf)
-	var sd := absf(sx - sf)
+	var sf: float = -qf - rf
+	var qx: float = round(qf)
+	var rx: float = round(rf)
+	var sx: float = round(sf)
+	var qd: float = absf(qx - qf)
+	var rd: float = absf(rx - rf)
+	var sd: float = absf(sx - sf)
 	if qd > rd and qd > sd:
 		qx = -rx - sx
 	elif rd > sd:
