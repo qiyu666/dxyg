@@ -56,9 +56,10 @@ func _build() -> void:
 	add_child(qr)
 
 	# 左侧：创建新存档 / 存档
-	var newbtn := _button("＋ 创建新存档", Vector2(40, vp.y * 0.14), 260, 64, func() -> void:
-		new_game.emit(selected_color()))
-		_style(newbtn, Color(0.3, 0.7, 0.35))
+	var cb_new := func():
+		new_game.emit(selected_color())
+	var newbtn := _button("＋ 创建新存档", Vector2(40, vp.y * 0.14), 260, 64, cb_new)
+	_style(newbtn, Color(0.3, 0.7, 0.35))
 	var saves := _button("▣ 存档", Vector2(40, vp.y * 0.14 + 84), 260, 64, func() -> void: _show_list())
 	_style(saves, Color(0.5, 0.4, 0.2))
 	add_child(newbtn)
@@ -184,9 +185,10 @@ func _show_list() -> void:
 		var btn := _button("进入", Vector2.ZERO, 120, 44, func() -> void: load_home.emit(str(h.get("id"))))
 		_style(btn, Color(0.3, 0.6, 0.5))
 		row.add_child(btn)
-		var del := _button("删除", Vector2.ZERO, 100, 44, func() -> void:
+		var cb_del := func():
 			delete_home.emit(str(h.get("id")))
-			_show_list())
+			_show_list()
+		var del := _button("删除", Vector2.ZERO, 100, 44, cb_del)
 		_style(del, Color(0.6, 0.3, 0.3))
 		row.add_child(del)
 
@@ -234,9 +236,8 @@ func _button(text: String, pos: Vector2, w: float, h: float, cb: Callable) -> Bu
 	return b
 
 
-func _style(c: Control, accent: Color = Color(0.15, 0.18, 0.22)) -> void:
-	# 简单着色：用 StyleBox 近似（此处保留占位，实际样式由主题）
-	_ = accent
+func _style(_c: Control, _accent: Color = Color(0.15, 0.18, 0.22)) -> void:
+	pass
 
 
 func _label(text: String, pos: Vector2, size: int) -> Label:
