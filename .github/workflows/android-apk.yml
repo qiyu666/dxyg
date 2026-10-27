@@ -109,23 +109,26 @@ jobs:
 
       # ---------- 发布签名（仅在提供了签名 Secrets 时） ----------
       - name: Build & sign Release APK
-        if: ${{ secrets.ANDROID_KEYSTORE_B64 != '' }}
+        env:
+          ANDROID_KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+          ANDROID_KEYSTORE_PASS: ${{ secrets.ANDROID_KEYSTORE_PASS }}
+          ANDROID_KEYSTORE_ALIAS: ${{ secrets.ANDROID_KEYSTORE_ALIAS }}
+          ANDROID_KEY_PASS: ${{ secrets.ANDROID_KEY_PASS }}
         run: |
           set -euo pipefail
+          if [ -z "${ANDROID_KEYSTORE_B64:-}" ]; then
+            echo "No release keystore secret configured; skipping release build."
+            exit 0
+          fi
           # 解码 keystore（运行期注入，绝不入库）
           echo "$ANDROID_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.keystore"
-          # 注意：Godot 各版本生成 gradle 工程的目录结构可能不同，
-          # keystore.properties 的读取路径以 4.7.1 实际生成物为准（默认在工程根）。
+          # 注意：keystore.properties 的读取路径以 Godot 4.7.1 实际生成物为准（默认在工程根）。
           cat > "$GRADLE_PROJECT/keystore.properties" <<EOF
           storeFile=$RUNNER_TEMP/release.keystore
           storePassword=$ANDROID_KEYSTORE_PASS
           keyAlias=$ANDROID_KEYSTORE_ALIAS
           keyPassword=$ANDROID_KEY_PASS
           EOF
-          echo "RELEASE_STORE_FILE=$RUNNER_TEMP/release.keystore" >> "$GITHUB_ENV"
-          echo "RELEASE_STORE_PASSWORD=$ANDROID_KEYSTORE_PASS" >> "$GITHUB_ENV"
-          echo "RELEASE_KEY_ALIAS=$ANDROID_KEYSTORE_ALIAS" >> "$GITHUB_ENV"
-          echo "RELEASE_KEY_PASSWORD=$ANDROID_KEY_PASS" >> "$GITHUB_ENV"
           export ANDROID_HOME="$HOME/android-sdk"
           export ANDROID_SDK_ROOT="$ANDROID_HOME"
           export ANDROID_NDK_HOME="$ANDROID_HOME/ndk/${ANDROID_NDK}"
@@ -133,17 +136,29 @@ jobs:
           ./gradlew assembleRelease
           find . -path "*/outputs/apk/release/*.apk" | head -n 1
       - name: Sign & align Release APK
-        if: ${{ secrets.ANDROID_KEYSTORE_B64 != '' }}
+        env:
+          ANDROID_KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+          ANDROID_KEYSTORE_PASS: ${{ secrets.ANDROID_KEYSTORE_PASS }}
+          ANDROID_KEYSTORE_ALIAS: ${{ secrets.ANDROID_KEYSTORE_ALIAS }}
+          ANDROID_KEY_PASS: ${{ secrets.ANDROID_KEY_PASS }}
         run: |
           set -euo pipefail
+          if [ -z "${ANDROID_KEYSTORE_B64:-}" ]; then
+            echo "No release keystore secret; skipping signing."
+            exit 0
+          fi
           export ANDROID_HOME="$HOME/android-sdk"
           APKSIGNER="$ANDROID_HOME/build-tools/${ANDROID_BUILD_TOOLS}/apksigner"
           ZIPALIGN="$ANDROID_HOME/build-tools/${ANDROID_BUILD_TOOLS}/zipalign"
           UNALIGNED="$(find "$GRADLE_PROJECT" -path '*/outputs/apk/release/*.apk' | head -n 1)"
+          if [ -z "$UNALIGNED" ]; then
+            echo "No release APK produced; skipping signing."
+            exit 0
+          fi
           "$APKSIGNER" sign \
-            --ks "$RELEASE_STORE_FILE" \
-            --ks-pass "pass:$RELEASE_STORE_PASSWORD" \
-            --key-pass "pass:$RELEASE_KEY_PASSWORD" \
+            --ks "$RUNNER_TEMP/release.keystore" \
+            --ks-pass "pass:$ANDROID_KEYSTORE_PASS" \
+            --key-pass "pass:$ANDROID_KEY_PASS" \
             --out dist/EmpireAnts-release.apk \
             "$UNALIGNED"
           "$ZIPALIGN" -f 4 dist/EmpireAnts-release.apk dist/EmpireAnts-release-aligned.apk
