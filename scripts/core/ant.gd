@@ -79,7 +79,7 @@ func update(dt: float, view) -> void:
 
 
 func _effective_speed(view) -> float:
-	var s := base_speed * (1.0 + view.grid.speed_bonus()) * view.speed_mult()
+	var s: float = base_speed * (1.0 + view.grid.speed_bonus()) * view.speed_mult()
 	if _on_hatcher(view):
 		s *= (1.0 - GameConst.HATCHER_DECEL)
 	return s
@@ -87,7 +87,7 @@ func _effective_speed(view) -> float:
 
 func _on_hatcher(view) -> bool:
 	var c: Vector2i = view.grid.screen_to_hex(global_position)
-	var b := view.grid.building_at(c)
+	var b: Building = view.grid.building_at(c)
 	return b != null and BuildingData.is_hatcher(b.type)
 
 
@@ -128,28 +128,28 @@ func _carry(view) -> void:
 		return
 	# 拾取：开关允许 + 储量未满 + 该格有食物
 	if _can_carry() and carrying <= 0.0 and view.can_carry_more():
-		var avail := view.grid.food_at(c)
+		var avail: float = view.grid.food_at(c)
 		if avail > 0.0:
-			var amt := minf(avail, carry_cap)
+			var amt: float = minf(avail, carry_cap)
 			view.grid.add_food(c, -amt)
 			carrying += amt
 			_want_carry = true
 
 
 func _move(view, dt: float, spd: float) -> void:
-	var target := _choose_target(view)
-	if target == null:
+	var target: Vector2i = _choose_target(view)
+	if target == GameConst.NO_CELL:
 		return
-	var goal := HexMath.hex_to_pos(target, view.grid.hex_size)
-	var to := goal - position
-	var step := spd * dt
+	var goal: Vector2 = HexMath.hex_to_pos(target, view.grid.hex_size)
+	var to: Vector2 = goal - position
+	var step: float = spd * dt
 	if to.length() <= step or to.length() == 0.0:
 		position = goal
 	else:
 		position += to.normalized() * step
 
 
-func _choose_target(view) -> Variant:
+func _choose_target(view) -> Vector2i:
 	var c: Vector2i = view.grid.screen_to_hex(global_position)
 	# 送食物优先
 	if carrying > 0.0:
@@ -166,7 +166,7 @@ func _choose_target(view) -> Variant:
 	# 默认行为
 	if view.can_carry_more():
 		var f: Vector2i = view.nearest_food(c)
-		if f != null and not f == Vector2i(0, 0):
+		if f != GameConst.NO_CELL:
 			return f
 	var e: Enemy = view.nearest_enemy(c)
 	if e != null and _can_attack():
@@ -191,7 +191,7 @@ func _egg_fetch(view) -> void:
 		return
 	if not view.queen_has_egg() or view.empty_hatch_count() <= 0:
 		return
-	var k := view.reserve_empty_hatch()
+	var k: String = view.reserve_empty_hatch()
 	if k != "":
 		carrying_egg = true
 		_egg_target = k
