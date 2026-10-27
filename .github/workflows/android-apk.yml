@@ -63,8 +63,8 @@ jobs:
       - name: Download Godot + export templates (4.7.1)
         run: |
           set -euo pipefail
-          BIN="Godot_v${GODOT_VERSION}_stable_linux.x86_64"
-          TPL="Godot_v${GODOT_VERSION}_stable_export_templates.tpz"
+          BIN="Godot_v${GODOT_VERSION}-stable_linux.x86_64"
+          TPL="Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
           mkdir -p godot_bin
           wget -O godot_bin/godot.zip "https://github.com/godotengine/godot-builds/releases/download/${GODOT_TAG}/${BIN}.zip"
           cd godot_bin && unzip -q godot.zip && cd ..
