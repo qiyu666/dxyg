@@ -40,7 +40,7 @@ var _food_label: Label
 var _worker_label: Label
 var _soldier_label: Label
 var _dig_label: Label
-var _toast: Label
+var _toast_label: Label
 var _tap_area: Control
 var _panels: Dictionary = {}
 var _team_chips: Array = []
@@ -777,16 +777,16 @@ func _build_ui() -> void:
 	_build_bottom_bar(vp, bottom)
 
 	# toast
-	_toast = Label.new()
-	_toast.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_toast.add_theme_font_size_override("font_size", 22)
-	_toast.add_theme_color_override("font_color", Color(1.0, 0.95, 0.8))
-	_toast.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_toast.position = Vector2(vp.x * 0.5 - 200, 64)
-	_toast.size = Vector2(400, 40)
-	_toast.modulate.a = 0.0
-	_toast.text = ""
-	ui.add_child(_toast)
+	_toast_label = Label.new()
+	_toast_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_toast_label.add_theme_font_size_override("font_size", 22)
+	_toast_label.add_theme_color_override("font_color", Color(1.0, 0.95, 0.8))
+	_toast_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_toast_label.position = Vector2(vp.x * 0.5 - 200, 64)
+	_toast_label.size = Vector2(400, 40)
+	_toast_label.modulate.a = 0.0
+	_toast_label.text = ""
+	ui.add_child(_toast_label)
 
 
 func _make_panel(vp: Vector2) -> Control:
@@ -1186,13 +1186,13 @@ func _dev_stage_name(b: Building) -> String:
 
 # ---------- toast ----------
 func _toast(text: String) -> void:
-	if _toast == null:
+	if _toast_label == null:
 		return
-	_toast.text = text
-	_toast.position.x = get_viewport().get_visible_rect().size.x / 2.0 - 220.0
-	_toast.modulate.a = 1.0
+	_toast_label.text = text
+	_toast_label.position.x = get_viewport().get_visible_rect().size.x / 2.0 - 220.0
+	_toast_label.modulate.a = 1.0
 	var tw := create_tween()
-	tw.tween_property(_toast, "modulate:a", 0.0, 1.6)
+	tw.tween_property(_toast_label, "modulate:a", 0.0, 1.6)
 
 
 # 退出前保存
