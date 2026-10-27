@@ -74,9 +74,20 @@ jobs:
           wget -O tpl.zip "https://github.com/godotengine/godot-builds/releases/download/${GODOT_TAG}/${TPL}"
           mkdir -p tpl_extract
           unzip -q tpl.zip -d tpl_extract
-          # 导出模板目录名用「点号」：4.7.1.stable（与 Godot 引擎版本目录一致）
-          mkdir -p "$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable"
-          cp -r tpl_extract/templates/* "$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable/"
+          # 模板目标目录用「点号」版本名（如 4.7.1.stable）
+          DEST="$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable"
+          # 自适应定位 android_source.zip 所在目录（可能为 tpl_extract/templates/ 或顶层）
+          SRC="$(dirname "$(find tpl_extract -name android_source.zip -print -quit)")"
+          if [ -z "$SRC" ] || [ ! -d "$SRC" ]; then
+            echo "ERROR: 未在解压目录找到 android_source.zip；实际内容："
+            find tpl_extract -maxdepth 3 -type f | head -30
+            exit 1
+          fi
+          mkdir -p "$DEST"
+          cp -r "$SRC"/. "$DEST"/
+          echo "=== 已安装导出模板 -> $DEST ==="
+          ls -1 "$DEST" | head -30
+          test -f "$DEST/android_source.zip" && echo "android_source.zip OK" || { echo "android_source.zip MISSING"; exit 1; }
 
       - name: Import project & generate Gradle project
         run: |
