@@ -69,7 +69,7 @@ func _ambush(view) -> void:
 	# 触发圈：1.5 格。有蚂蚁进入即抱走（冷却内不重复）
 	if _grab_cd > 0.0:
 		return
-	var trigger_px := view.grid.hex_size * 1.5
+	var trigger_px: float = view.grid.hex_size * 1.5
 	var victim: Ant = view.nearest_ant(global_position, trigger_px)
 	if victim != null and victim.alive:
 		victim.take_damage(99.0)   # 高伤、通常一击致命
@@ -80,9 +80,9 @@ func _ambush(view) -> void:
 
 func _seek(view, dt: float) -> void:
 	var target: Vector2i = view.enemy_target_hex(self)
-	var goal := HexMath.hex_to_pos(target, view.grid.hex_size)
-	var to := goal - position
-	var step := speed * dt
+	var goal: Vector2 = HexMath.hex_to_pos(target, view.grid.hex_size)
+	var to: Vector2 = goal - position
+	var step: float = speed * dt
 	if to.length() <= step or to.length() == 0.0:
 		position = goal
 	else:
