@@ -96,6 +96,13 @@ jobs:
           export ANDROID_SDK_ROOT="$ANDROID_HOME"
           export ANDROID_NDK_HOME="$ANDROID_HOME/ndk/${ANDROID_NDK}"
           GODOT="$(cat godot_path.txt)"
+          # 安装 Android Gradle 构建模板到项目内 res://android/build
+          # （等价于编辑器菜单 "Install Android Build Template"；headless/CI 需手动做，
+          #   否则报 "Android build template not installed in the project"）
+          TPL_DIR="$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable"
+          mkdir -p android/build
+          ( cd android/build && unzip -oq "$TPL_DIR/android_source.zip" )
+          echo "=== android/build 已安装 ==="; ls android/build | head
           "$GODOT" --headless --path . --import || true
           # 生成 Gradle 工程（export_presets.cfg 已启用 gradle）
           "$GODOT" --headless --path . --export-release "Android" "$GRADLE_PROJECT"
