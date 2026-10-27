@@ -6,12 +6,11 @@ on:
     branches: [main]
 
 # 说明：
-#   本工作流用「非 Gradle 直接导出 .apk」以在 CI 中稳定出包（比 Gradle 空壳更可靠）。
-#   - 导出模板版本与 Godot 完全一致（4.7.1-stable）。
-#   - JDK 17；配置 Android SDK（Platform / Build-Tools / Platform-Tools）。
-#   - 包名只用 ASCII：com.ants.example.empire。
-#   - Debug 用自建 debug keystore 签名；Release 用 Secrets 注入 Keystore（本仓库不提交任何签名文件）。
-#   - 若需要 AAB / 自定义插件，可改回 Gradle 构建（在 export_presets.cfg 设 gradle_build/use_gradle_build=true）。
+#   本工作流用「非 Gradle 直接导出 .apk」在 CI 中稳定出包。
+#   - 导出模板版本与 Godot 一致（4.7.1-stable）；JDK 17 + Android SDK。
+#   - 包名 ASCII：com.ants.example.empire。
+#   - 当前只产出 Debug APK（用自建 debug keystore 签名，非敏感）。
+#   - Release 签名（Keystore 走 Secrets）待你在仓库 Secrets 配好后再加回，避免 secrets 上下文触发校验问题。
 
 env:
   GODOT_VERSION: "4.7.1"
@@ -91,7 +90,6 @@ jobs:
           export ANDROID_HOME="$ANDROID_HOME"
           APKSIGNER="$ANDROID_HOME/build-tools/${ANDROID_BUILD_TOOLS}/apksigner"
           ZIPALIGN="$ANDROID_HOME/build-tools/${ANDROID_BUILD_TOOLS}/zipalign"
-          # 生成仅用于调试的 debug keystore（非敏感；release 才用 Secrets）
           keytool -genkeypair -v -keystore "$RUNNER_TEMP/debug.keystore" \
             -storepass android -alias androiddebugkey -keypass android \
             -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug, O=Ants, C=US"
@@ -102,34 +100,8 @@ jobs:
           fi
           "$APKSIGNER" verify --print-certs "build/EmpireAnts-debug.apk"
 
-      # ---------- 发布签名（仅在提供签名 Secrets 时） ----------
-      - name: Export & sign Release APK
-        if: ${{ secrets.ANDROID_KEYSTORE_B64 != '' }}
-        env:
-          ANDROID_KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
-          ANDROID_KEYSTORE_PASS: ${{ secrets.ANDROID_KEYSTORE_PASS }}
-          ANDROID_KEYSTORE_ALIAS: ${{ secrets.ANDROID_KEYSTORE_ALIAS }}
-          ANDROID_KEY_PASS: ${{ secrets.ANDROID_KEY_PASS }}
-        run: |
-          set -euo pipefail
-          export ANDROID_HOME="$ANDROID_HOME"
-          APKSIGNER="$ANDROID_HOME/build-tools/${ANDROID_BUILD_TOOLS}/apksigner"
-          ZIPALIGN="$ANDROID_HOME/build-tools/${ANDROID_BUILD_TOOLS}/zipalign"
-          GODOT="$(cat godot_path.txt)"
-          # 解码 release keystore（运行期注入，绝不入库）
-          echo "$ANDROID_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.keystore"
-          "$GODOT" --headless --path . --export-release "Android" "build/EmpireAnts-release.apk"
-          "$APKSIGNER" sign \
-            --ks "$RUNNER_TEMP/release.keystore" \
-            --ks-pass "pass:$ANDROID_KEYSTORE_PASS" \
-            --key-alias "$ANDROID_KEYSTORE_ALIAS" \
-            --key-pass "pass:$ANDROID_KEY_PASS" \
-            --out "build/EmpireAnts-release-signed.apk" "build/EmpireAnts-release.apk"
-          "$ZIPALIGN" -f 4 "build/EmpireAnts-release-signed.apk" "build/EmpireAnts-release.apk"
-          "$APKSIGNER" verify --print-certs "build/EmpireAnts-release.apk"
-
-      - name: Upload artifacts
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: EmpireAnts-apk
-          path: build/
+          name: EmpireAnts-debug
+          path: build/EmpireAnts-debug.apk
