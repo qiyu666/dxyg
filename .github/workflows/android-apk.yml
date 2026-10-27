@@ -1,0 +1,157 @@
+# Android APK 打包（Godot 4.7.1 · Mobile 渲染器 · ARM64 · Gradle）
+#
+# 原则：
+#   - 导出模板版本与 Godot 完全一致（4.7.1-stable）。
+#   - JDK 17；配置 Android SDK / Build-Tools / Platform-Tools / NDK。
+#   - 启用 Gradle 构建（export_presets.cfg 中 gradle_build/use_gradle_build=true）。
+#   - 包名只用 ASCII：com.ants.example.empire。
+#   - Debug 用内置 debug 签名；Release 通过 Secrets 注入 Keystore，
+#     本仓库不提交任何 keystore / 密码 / 签名文件。
+#
+# 需要的 Secrets（发布签名时才用到，均为运行时注入，绝不入库）：
+#   ANDROID_KEYSTORE_B64   Keystore 文件 base64
+#   ANDROID_KEYSTORE_ALIAS 别名
+#   ANDROID_KEYSTORE_PASS  keystore 密码
+#   ANDROID_KEY_PASS       密钥密码（常与上一个相同）
+#
+# 首次运行请在 .godot/import 前确保无二进制依赖；若使用 .tpz 之外的模板，
+# 请按需修改 GODOT_VERSION / 资产名。
+
+name: Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+env:
+  GODOT_VERSION: "4.7.1"
+  GODOT_TAG: "4.7.1-stable"
+  ANDROID_API: "34"
+  ANDROID_BUILD_TOOLS: "34.0.0"
+  ANDROID_NDK: "26.1.10909125"
+  GRADLE_PROJECT: gradle_project
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install Android command-line tools
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y unzip wget
+          export ANDROID_HOME="$HOME/android-sdk"
+          mkdir -p "$ANDROID_HOME/cmdline-tools"
+          cd "$ANDROID_HOME/cmdline-tools"
+          wget https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O tools.zip
+          unzip -q tools.zip
+          mv cmdline-tools latest
+          rm -f tools.zip
+          yes | latest/bin/sdkmanager --licenses || true
+          latest/bin/sdkmanager "platform-tools" "platforms;android-${ANDROID_API}" "build-tools;${ANDROID_BUILD_TOOLS}" "ndk;${ANDROID_NDK}"
+
+      - name: Download Godot + export templates (4.7.1)
+        run: |
+          set -euo pipefail
+          BIN="Godot_v${GODOT_VERSION}_stable_linux.x86_64"
+          TPL="Godot_v${GODOT_VERSION}_stable_export_templates.tpz"
+          mkdir -p godot_bin
+          wget -O godot_bin/godot.zip "https://github.com/godotengine/godot-builds/releases/download/${GODOT_TAG}/${BIN}.zip"
+          cd godot_bin && unzip -q godot.zip && cd ..
+          chmod +x "godot_bin/${BIN}"
+          echo "godot_bin/${BIN}" > godot_path.txt
+          # 导出模板必须与 Godot 版本一致
+          wget -O tpl.zip "https://github.com/godotengine/godot-builds/releases/download/${GODOT_TAG}/${TPL}"
+          mkdir -p tpl_extract
+          unzip -q tpl.zip -d tpl_extract
+          mkdir -p "$HOME/.local/share/godot/export_templates/${GODOT_TAG}"
+          cp -r tpl_extract/templates/* "$HOME/.local/share/godot/export_templates/${GODOT_TAG}/"
+
+      - name: Import project & generate Gradle project
+        run: |
+          set -euo pipefail
+          export ANDROID_HOME="$HOME/android-sdk"
+          export ANDROID_SDK_ROOT="$ANDROID_HOME"
+          export ANDROID_NDK_HOME="$ANDROID_HOME/ndk/${ANDROID_NDK}"
+          GODOT="$(cat godot_path.txt)"
+          "$GODOT" --headless --path . --import || true
+          # 生成 Gradle 工程（export_presets.cfg 已启用 gradle）
+          "$GODOT" --headless --path . --export-release "Android" "$GRADLE_PROJECT"
+
+      - name: Build APK with Gradle
+        run: |
+          set -euo pipefail
+          export ANDROID_HOME="$HOME/android-sdk"
+          export ANDROID_SDK_ROOT="$ANDROID_HOME"
+          export ANDROID_NDK_HOME="$ANDROID_HOME/ndk/${ANDROID_NDK}"
+          # 写入 SDK 路径（不提交；生成物）
+          echo "sdk.dir=$ANDROID_HOME" > "$GRADLE_PROJECT/local.properties"
+          cd "$GRADLE_PROJECT"
+          chmod +x ./gradlew
+          # Godot 生成的多模块工程：应用 APK 由 android application 模块产出。
+          # 在根项目运行 assembleDebug 会构建所有子模块（APK 在应用模块 outputs/apk/debug）。
+          ./gradlew assembleDebug
+          find . -path "*/outputs/apk/debug/*.apk" | head -n 1
+      - name: Move debug APK
+        run: |
+          mkdir -p dist
+          find "$GRADLE_PROJECT" -path "*/outputs/apk/debug/*.apk" -exec cp {} dist/EmpireAnts-debug.apk \;
+
+      # ---------- 发布签名（仅在提供了签名 Secrets 时） ----------
+      - name: Build & sign Release APK
+        if: ${{ secrets.ANDROID_KEYSTORE_B64 != '' }}
+        run: |
+          set -euo pipefail
+          # 解码 keystore（运行期注入，绝不入库）
+          echo "$ANDROID_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.keystore"
+          # 注意：Godot 各版本生成 gradle 工程的目录结构可能不同，
+          # keystore.properties 的读取路径以 4.7.1 实际生成物为准（默认在工程根）。
+          cat > "$GRADLE_PROJECT/keystore.properties" <<EOF
+          storeFile=$RUNNER_TEMP/release.keystore
+          storePassword=$ANDROID_KEYSTORE_PASS
+          keyAlias=$ANDROID_KEYSTORE_ALIAS
+          keyPassword=$ANDROID_KEY_PASS
+          EOF
+          echo "RELEASE_STORE_FILE=$RUNNER_TEMP/release.keystore" >> "$GITHUB_ENV"
+          echo "RELEASE_STORE_PASSWORD=$ANDROID_KEYSTORE_PASS" >> "$GITHUB_ENV"
+          echo "RELEASE_KEY_ALIAS=$ANDROID_KEYSTORE_ALIAS" >> "$GITHUB_ENV"
+          echo "RELEASE_KEY_PASSWORD=$ANDROID_KEY_PASS" >> "$GITHUB_ENV"
+          export ANDROID_HOME="$HOME/android-sdk"
+          export ANDROID_SDK_ROOT="$ANDROID_HOME"
+          export ANDROID_NDK_HOME="$ANDROID_HOME/ndk/${ANDROID_NDK}"
+          cd "$GRADLE_PROJECT"
+          ./gradlew assembleRelease
+          find . -path "*/outputs/apk/release/*.apk" | head -n 1
+      - name: Sign & align Release APK
+        if: ${{ secrets.ANDROID_KEYSTORE_B64 != '' }}
+        run: |
+          set -euo pipefail
+          export ANDROID_HOME="$HOME/android-sdk"
+          APKSIGNER="$ANDROID_HOME/build-tools/${ANDROID_BUILD_TOOLS}/apksigner"
+          ZIPALIGN="$ANDROID_HOME/build-tools/${ANDROID_BUILD_TOOLS}/zipalign"
+          UNALIGNED="$(find "$GRADLE_PROJECT" -path '*/outputs/apk/release/*.apk' | head -n 1)"
+          "$APKSIGNER" sign \
+            --ks "$RELEASE_STORE_FILE" \
+            --ks-pass "pass:$RELEASE_STORE_PASSWORD" \
+            --key-pass "pass:$RELEASE_KEY_PASSWORD" \
+            --out dist/EmpireAnts-release.apk \
+            "$UNALIGNED"
+          "$ZIPALIGN" -f 4 dist/EmpireAnts-release.apk dist/EmpireAnts-release-aligned.apk
+          mv dist/EmpireAnts-release-aligned.apk dist/EmpireAnts-release.apk
+          "$APKSIGNER" verify --print-certs dist/EmpireAnts-release.apk
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: EmpireAnts-apk
+          path: dist/

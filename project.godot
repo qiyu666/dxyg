@@ -1,0 +1,43 @@
+; Engine configuration file.
+; It is best edited with the editor UI and not directly,
+; since direct editing of .godot files is not fully supported.
+; https://docs.godotengine.org/en/stable/tutorials/scripting/project_settings.html
+
+config_version=5
+
+[application]
+
+config/name="EmpireAnts"
+config/description="横版蚁群策略（竖屏）：六边形网格 + 信息素指挥"
+config/version="0.1.0"
+run/main_scene="res://scenes/main.tscn"
+config/features=PackedStringArray("4.7")
+config/icon="res://icon.svg"
+
+[autoload]
+
+SaveSystem="*res://scripts/autoload/save_system.gd"
+GameState="*res://scripts/autoload/game_state.gd"
+
+[display]
+
+window/size/viewport_width=1080
+window/size/viewport_height=1920
+window/handheld/orientation=1
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+
+[gui]
+
+theme/default_font_oversampling=1
+
+[input_devices]
+
+pointing/emulate_touch_from_mouse=true
+
+[rendering]
+
+renderer/rendering_method="mobile"
+renderer/rendering_method.mobile="mobile"
+textures/canvas_textures/default_texture_filter=0
+2d/snap/vertex_y=0

@@ -1,0 +1,32 @@
+# Godot 4 通用忽略
+# 编辑器缓存与生成目录
+.godot/
+build/
+dist/
+*.apk
+*.aab
+
+# 版本控制
+.vs/
+.idea/
+*.tmp
+
+# 导出时生成的 Gradle 工程（含 sdk.dir 等本机路径，不提交）
+gradle_project/
+**/local.properties
+**/gradlew
+**/gradlew.bat
+**/.gradle/
+
+# 敏感签名文件永不提交
+*.keystore
+*.jks
+*.keystore.*
+keystore/
+
+# 生成/下载的占位资源（如需自托管贴图可放开）
+assets/generated/
+
+# 日志与产物
+*.log
+export_output/
