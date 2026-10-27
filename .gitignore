@@ -13,6 +13,7 @@ dist/
 
 # 导出时生成的 Gradle 工程（含 sdk.dir 等本机路径，不提交）
 gradle_project/
+android/build/
 **/local.properties
 **/gradlew
 **/gradlew.bat
