@@ -51,7 +51,7 @@ func _set_color() -> void:
 			color = Color(0.6, 0.2, 0.2)
 
 
-func update(dt: float, view: GameView) -> void:
+func update(dt: float, view) -> void:
 	if not alive:
 		return
 	grid_hex = view.grid.screen_to_hex(global_position)
@@ -65,7 +65,7 @@ func update(dt: float, view: GameView) -> void:
 	queue_redraw()
 
 
-func _ambush(view: GameView) -> void:
+func _ambush(view) -> void:
 	# 触发圈：1.5 格。有蚂蚁进入即抱走（冷却内不重复）
 	if _grab_cd > 0.0:
 		return
@@ -78,7 +78,7 @@ func _ambush(view: GameView) -> void:
 		_grab_cd = 3.0
 
 
-func _seek(view: GameView, dt: float) -> void:
+func _seek(view, dt: float) -> void:
 	var target: Vector2i = view.enemy_target_hex(self)
 	var goal := HexMath.hex_to_pos(target, view.grid.hex_size)
 	var to := goal - position
@@ -89,7 +89,7 @@ func _seek(view: GameView, dt: float) -> void:
 		position += to.normalized() * step
 
 
-func _contact(view: GameView) -> void:
+func _contact(view) -> void:
 	if _attack_cd > 0.0:
 		return
 	var c: Vector2i = view.grid.screen_to_hex(global_position)
