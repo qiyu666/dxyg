@@ -3,9 +3,8 @@ extends Node
 #  Main：菜单 → 关卡流程；触屏点选（射线到 y=0 平面）→ 按模式路由
 # =========================================================
 var menu: CanvasLayer
-var world: Node = null
-var hud: Node = null
-var cam: Camera3D = null
+var world = null
+var hud = null
 var mode := ""
 var sel_squad := 0
 
@@ -15,12 +14,12 @@ func _ready() -> void:
 func _build_menu() -> void:
 	menu = CanvasLayer.new()
 	add_child(menu)
-	var c := CenterContainer.new(); c.set_anchors_preset(PRESET_FULL_RECT); menu.add_child(c)
+	var c := CenterContainer.new(); c.set_anchors_preset(Control.PRESET_FULL_RECT); menu.add_child(c)
 	var panel := PanelContainer.new()
 	var col := VBoxContainer.new(); col.alignment = BoxContainer.ALIGNMENT_CENTER
 	panel.add_child(col)
 	c.add_child(panel)
-	var t := Label.new(); t.text = "The Ants · 小小蚁国（3D 安卓）"; t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var t := Label.new(); t.text = "The Ants · 小小蚁国（3D 安卓）"; t.horizontal_alignment = HorizontalAlignment.CENTER
 	col.add_child(t)
 	for i in Game.ANT_COLORS.size():
 		var btn := Button.new(); btn.text = Game.ANT_COLORS[i].name
@@ -37,7 +36,6 @@ func _start(idx: int) -> void:
 	world = World3D.new()
 	add_child(world)
 	world.setup(idx)
-	cam = world.get_node("Camera3D") if world.has_node("Camera3D") else null
 	var layer := CanvasLayer.new()
 	add_child(layer)
 	hud = load("res://scripts/HUD.gd").new()

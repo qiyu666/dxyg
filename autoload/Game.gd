@@ -142,9 +142,14 @@ func save_home(h:Dictionary) -> void:
 
 func load_home(id:String) -> Dictionary:
 	var f := FileAccess.open(_save_path("home", id), FileAccess.READ)
-	if f:
-		return JSON.parse_string(f.get_as_text()).as_dictionary()
-	return {}
+	if not f:
+		return {}
+	var js := JSON.new()
+	if js.parse(f.get_as_text()) != OK:
+		return {}
+	var d: Dictionary = js.data if js.data is Dictionary else {}
+	f.close()
+	return d
 
 func save_meta() -> void:
 	var f := FileAccess.open(_save_path("meta","main"), FileAccess.WRITE)
@@ -154,12 +159,16 @@ func save_meta() -> void:
 
 func load_meta() -> void:
 	var f := FileAccess.open(_save_path("meta","main"), FileAccess.READ)
-	if f:
-		var d = JSON.parse_string(f.get_as_text()).as_dictionary()
+	if not f:
+		return
+	var js := JSON.new()
+	if js.parse(f.get_as_text()) == OK and js.data is Dictionary:
+		var d: Dictionary = js.data
 		color_idx = int(d.get("color_idx", 0))
 		cleared = d.get("cleared", [false,false])
 		points_spent = int(d.get("points_spent", 0))
 		evolutions = d.get("evolutions", {})
+	f.close()
 
 func list_home_saves() -> Array:
 	var out := []
