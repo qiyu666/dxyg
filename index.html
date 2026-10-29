@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#4f9e2a" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="The Ants" />
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="apple-touch-icon" href="assets/icon-192.png" />
+<link rel="stylesheet" href="style.css?v=7" />
+<title>The Ants · 小小蚁国</title>
+</head>
+<body>
+<div id="app">
+  <header id="hud" class="hidden">
+    <div class="stat"><span class="ico">🌿</span><b id="hud-food">0</b><i id="hud-cap"></i></div>
+    <div class="stat" id="hud-w"><span class="ico">🐜</span><b id="hud-worker">0</b><i id="hud-wcap"></i></div>
+    <div class="stat" id="hud-s"><span class="ico">⚔️</span><b id="hud-soldier">0</b><i id="hud-scap"></i></div>
+    <div class="stat" id="hud-b"><span class="ico">🧱</span><b id="hud-blocks">0</b></div>
+    <div class="stat" id="hud-j"><span class="ico">🧪</span><b id="hud-jelly">0</b></div>
+    <div class="stat" id="hud-l"><span class="ico">🥚</span><b id="hud-larva">0</b></div>
+    <div class="stat" id="hud-extra"></div>
+    <button id="btn-back" aria-label="返回">←</button>
+  </header>
+
+  <main id="stage">
+    <canvas id="cv"></canvas>
+    <div id="toast" class="toast"></div>
+    <div id="overlay" class="overlay hidden"><div class="overlay-card" id="overlay-card"></div></div>
+  </main>
+
+  <nav id="bottom" class="hidden">
+    <div id="bottom-content"></div>
+  </nav>
+</div>
+<script src="game.js?v=7"></script>
+</body>
+</html>
