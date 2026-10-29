@@ -61,7 +61,7 @@ func update(dt: float, w: Node) -> void:
 		return
 	cd -= dt
 	# 目标：最近蚂蚁，否则蚁后
-	var target_pos := w.queen_pos
+	var target_pos: Vector3 = w.queen_pos
 	var target_ant: AntUnit = null
 	var td := 1e9
 	for a in w.ants:

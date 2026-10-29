@@ -192,7 +192,7 @@ func set_squad(key: String, squad: int) -> void:
 
 func place_pheromone(squad: int, world_pos: Vector3) -> void:
 	sel_squad = squad
-	var sq := squads[squad]
+	var sq: Dictionary = squads[squad]
 	sq.marker = world_pos
 	# 该队每只蚁取 marker 周围随机目标位（散开）
 	for a in ants:

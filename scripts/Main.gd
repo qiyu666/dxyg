@@ -19,7 +19,7 @@ func _build_menu() -> void:
 	var col := VBoxContainer.new(); col.alignment = BoxContainer.ALIGNMENT_CENTER
 	panel.add_child(col)
 	c.add_child(panel)
-	var t := Label.new(); t.text = "The Ants · 小小蚁国（3D 安卓）"; t.horizontal_alignment = HorizontalAlignment.CENTER
+	var t := Label.new(); t.text = "The Ants · 小小蚁国（3D 安卓）"; t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	col.add_child(t)
 	for i in Game.ANT_COLORS.size():
 		var btn := Button.new(); btn.text = Game.ANT_COLORS[i].name

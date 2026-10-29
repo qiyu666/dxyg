@@ -56,7 +56,7 @@ func _make_tile_mesh(t: Dictionary, q:int, r:int) -> void:
 	_retile_by_type(t)
 
 func _retile(k: String) -> void:
-	var t := tiles[k]
+	var t: Dictionary = tiles[k]
 	_retile_by_type(t)
 	if t.get("marker"):
 		if t.marker and is_instance_valid(t.marker): t.marker.queue_free()
@@ -65,7 +65,7 @@ func _retile(k: String) -> void:
 
 func _retile_by_type(t: Dictionary) -> void:
 	var m: MeshInstance3D = t.node
-	if not m or not m.material:
+	if not m:
 		return
 	var col := Color("#241a11")
 	match t.type:
@@ -77,11 +77,11 @@ func _retile_by_type(t: Dictionary) -> void:
 		"soldier":col = Color("#3a1c12")
 		"storage":col = Color("#2c2414")
 		"speed": col = Color("#142a26")
-	var mat := m.material
-	if mat is StandardMaterial3D:
-		mat.albedo_color = col
-	else:
-		mat = StandardMaterial3D.new(); mat.albedo_color = col; m.material = mat
+	var mat: StandardMaterial3D = m.material as StandardMaterial3D
+	if mat == null:
+		mat = StandardMaterial3D.new()
+		m.material = mat
+	mat.albedo_color = col
 
 func _plant_buried() -> void:
 	var used := {}
@@ -108,12 +108,12 @@ func is_frontier(k: String) -> bool:
 	var d := Game.parse_key(k)
 	if not Game.in_radius(d.x, d.y, radius):
 		return false
-	var t := tiles.get(k)
+	var t: Dictionary = tiles.get(k)
 	if t and t.type not in ["empty", "dirt", "tunnel"]:
 		return false
 	for dir in Game.DIRS:
 		var nk := Game.hkey(d.x + dir[0], d.y + dir[1])
-		var nt := tiles.get(nk)
+		var nt: Dictionary = tiles.get(nk)
 		if nt and nt.type not in ["empty", "dirt"]:
 			return true
 	return false
@@ -140,7 +140,7 @@ func _refresh_markers() -> void:
 
 # ---------- 挖掘 ----------
 func start_dig(k: String) -> bool:
-	var t := tiles.get(k)
+	var t: Dictionary = tiles.get(k)
 	if not t or t.type not in ["dirt", "empty", "tunnel"] or t.type == "queen":
 		return false
 	if t.type == "empty":
@@ -151,7 +151,7 @@ func start_dig(k: String) -> bool:
 	return true
 
 func dig_progress(k: String, dt: float) -> void:
-	var t := tiles.get(k)
+	var t: Dictionary = tiles.get(k)
 	if not t or not t.has("dig"):
 		return
 	t.dig.progress += dt
@@ -164,7 +164,7 @@ func dig_progress(k: String, dt: float) -> void:
 func reveal(k: String) -> void:
 	if not buried.has(k):
 		return
-	var b := buried[k]
+	var b: Dictionary = buried[k]
 	buried.erase(k)
 	var d := Game.parse_key(k)
 	var p := Game.h2p(d.x, d.y)
@@ -179,12 +179,12 @@ func tick_hatch(dt: float, idle_workers: int, ants_count: int, food: float, by_s
 	# 返回本次消耗的食物（蛹→活跃）
 	var spend := 0.0
 	for k in tiles:
-		var t := tiles[k]
+		var t: Dictionary = tiles[k]
 		if t.type not in ["worker", "soldier"]:
 			continue
 		if not t.has("hatch"):
 			t.hatch = { stage = "empty", t = 0.0, fast = false }
-		var h := t.hatch
+		var h: Dictionary = t.hatch
 		if h.stage == "active":
 			continue
 		var squad := int(t.squad)
@@ -223,12 +223,12 @@ func _can_carry(idle_workers:int, ants_count:int) -> bool:
 	return idle_workers > 0 and ants_count < 150
 
 func hatch_on_death(k: String) -> void:
-	var t := tiles.get(k)
+	var t: Dictionary = tiles.get(k)
 	if t and t.has("hatch"):
 		t.hatch = { stage = "empty", t = 0.0, fast = true }
 
 func build_building(k: String, type: String) -> bool:
-	var t := tiles.get(k)
+	var t: Dictionary = tiles.get(k)
 	if not t or t.type not in ["empty", "dirt", "tunnel"]:
 		return false
 	t.type = type
@@ -239,14 +239,14 @@ func build_building(k: String, type: String) -> bool:
 	return true
 
 func set_squad(k: String, squad: int) -> void:
-	var t := tiles.get(k)
+	var t: Dictionary = tiles.get(k)
 	if t and t.type in ["worker", "soldier"]:
 		t.squad = squad
 
 func active_population() -> Dictionary:
 	var w := 0; var s := 0; var wm := 0; var sm := 0
 	for k in tiles:
-		var t := tiles[k]
+		var t: Dictionary = tiles[k]
 		if t.type == "worker": wm += 1
 		elif t.type == "soldier": sm += 1
 		if t.has("hatch") and t.hatch.stage == "active":

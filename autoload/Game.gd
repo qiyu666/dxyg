@@ -103,8 +103,8 @@ static func p2h(x:float, z:float) -> Vector2i:
 
 static func hex_round(qf:float, rf:float) -> Vector2i:
 	var x := qf; var z := rf; var y := -x - z
-	var rq := round(x); var rz := round(z); var ry := round(y)
-	var dx := abs(rq - x); var dz := abs(rz - z); var dy := abs(ry - y)
+	var rq: int = int(round(x)); var rz: int = int(round(z)); var ry: int = int(round(y))
+	var dx: float = absf(rq - x); var dz: float = absf(rz - z); var dy: float = absf(ry - y)
 	if dx > dz and dx > dy:
 		rq = -rz - ry
 	elif dz > dy:
