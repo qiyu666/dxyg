@@ -96,12 +96,12 @@
   }
 
   const view = { s: 1, cx: 270, cy: 470 };
-  const TILT = 0.7; // 2.5D：地面纵向压缩（俯视偏角），单位再抵消回来使其“立起来”
+  const TILT = 1;   // 平面 2D（俯视偏角关闭；若想恢复 2.5D 压迫感改回 0.7）
   function fitMap(radius) {
     const maxX = HEX * SQ3 * radius + HEX * SQ3 / 2;
     const maxY = HEX * 1.5 * radius + HEX;
-    view.s = Math.min(500 / (2 * maxX), 830 / (2 * maxY * TILT));
-    view.cx = 270; view.cy = 462;
+    view.s = Math.min(520 / (2 * maxX), 700 / (2 * maxY));
+    view.cx = 270; view.cy = 470;
   }
   function w2s(x, y) { return { x: view.cx + x * view.s, y: view.cy + y * view.s * TILT }; }
   function s2w(x, y) { return { x: (x - view.cx) / view.s, y: (y - view.cy) / (view.s * TILT) }; }
@@ -678,10 +678,13 @@
     if (!S) return;
     view.cx = 270;
     if (!S._s0) S._s0 = view.s;                 // 记录 fitMap 基准缩放
-    const surf = S.viewLayer === 'surface';
-    view.s = surf ? S._s0 * 1.5 : S._s0;         // 地表放大看清实体
-    const wy = surf ? SURF_C.y : 0;
-    view.cy = LH * 0.5 - wy * view.s * TILT;
+    if (S.viewLayer === 'surface') {
+      view.s = S._s0 * 1.5;                      // 地表放大看清实体
+      view.cy = LH * 0.5 - SURF_C.y * view.s * TILT;
+    } else {
+      view.s = S._s0;                            // 地下：2D 平面取景
+      view.cy = 470;
+    }
   }
 
   // 跨区移动：不同区先走到本区竖井口，到口后瞬移到对侧口
@@ -1331,22 +1334,10 @@
   }
 
   function renderIdleBg() {
-    // 洞窟纵深：远端/前景发黑、中地面受光
+    // 深色岩洞基底（上略亮、下发黑）
     const g = ctx.createLinearGradient(0, 0, 0, LH);
-    g.addColorStop(0, '#040302'); g.addColorStop(0.32, '#180f08');
-    g.addColorStop(0.55, '#241a10'); g.addColorStop(0.82, '#100a06'); g.addColorStop(1, '#040302');
+    g.addColorStop(0, '#1c150e'); g.addColorStop(0.5, '#140f09'); g.addColorStop(1, '#0a0705');
     ctx.fillStyle = g; ctx.fillRect(0, 0, LW, LH);
-    // 顶部落石/钟乳石剪影（纵深）
-    ctx.fillStyle = 'rgba(0,0,0,.5)';
-    for (let i = 0; i < 14; i++) {
-      const x = (i / 13) * LW, w = 20 + (i % 4) * 8, h = 16 + (i % 5) * 9;
-      ctx.beginPath(); ctx.moveTo(x - w, 0); ctx.lineTo(x + w, 0); ctx.lineTo(x, h); ctx.closePath(); ctx.fill();
-    }
-    // 一束光自洞顶洒下（2.5D 光源）
-    const shaft = ctx.createLinearGradient(0, 0, 0, LH * 0.6);
-    shaft.addColorStop(0, 'rgba(190,150,80,.11)'); shaft.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = shaft;
-    ctx.beginPath(); ctx.moveTo(LW * 0.32, 0); ctx.lineTo(LW * 0.68, 0); ctx.lineTo(LW * 0.82, LH * 0.55); ctx.lineTo(LW * 0.18, LH * 0.55); ctx.closePath(); ctx.fill();
     // 岩层 / 土壤斑驳纹理（固定种子，不闪烁）
     for (let i = 0; i < 240; i++) {
       const x = (i * 137.3) % LW, y = (i * 91.7) % LH, r = 3 + (i % 8);
@@ -1356,9 +1347,9 @@
     // 零星苔藓（去饱和绿）
     ctx.fillStyle = 'rgba(70,96,52,.10)';
     for (let i = 0; i < 40; i++) { const x = (i * 211.3) % LW, y = (i * 137.9) % LH; ctx.beginPath(); ctx.ellipse(x, y, 8 + (i % 6), 5 + (i % 4), 0, 0, 7); ctx.fill(); }
-    // 中心微光（蚁群被照亮，四周发黑→压迫感）
-    const rg = ctx.createRadialGradient(LW / 2, LH * 0.48, 8, LW / 2, LH * 0.48, LH * 0.62);
-    rg.addColorStop(0, 'rgba(190,150,88,.22)'); rg.addColorStop(0.55, 'rgba(120,95,55,.08)'); rg.addColorStop(1, 'rgba(0,0,0,0)');
+    // 中心微光（压迫感）
+    const rg = ctx.createRadialGradient(LW / 2, LH * 0.46, 10, LW / 2, LH * 0.46, LH * 0.55);
+    rg.addColorStop(0, 'rgba(170,140,85,.14)'); rg.addColorStop(0.6, 'rgba(0,0,0,0)');
     ctx.fillStyle = rg; ctx.fillRect(0, 0, LH, LH);
   }
 
@@ -1554,28 +1545,15 @@
       for (let r = Math.max(-radius, -q - radius); r <= Math.min(radius, -q + radius); r++) {
         const p = h2p(q, r);
         const t = tiles[hkey(q, r)];
-        let fill = '#332414', stroke = 'rgba(0,0,0,.4)';
-        if (t && t.type === 'tunnel') fill = '#120c07';
-        else if (t && t.type === 'queen') fill = '#4a3618';
-        else if (t && t.type === 'worker') fill = '#3f4a24';
-        else if (t && t.type === 'soldier') fill = '#4a2416';
-        else if (t && t.type === 'storage') fill = '#3a3218';
-        else if (t && t.type === 'speed') fill = '#1e4038';
-        else if (t && t.type === 'dirt') fill = '#3a2c18';
-        // 2.5D 侧墙（底部偏移的深色六边形，先画，作为厚度）
-        if (t && t.type && t.type !== 'dirt' && t.type !== 'tunnel') {
-          hexPath(p.x, p.y + 5, HEX - 1); ctx.fillStyle = shade(fill, -0.55); ctx.fill();
-        }
+        let fill = '#241a11', stroke = 'rgba(0,0,0,.4)';
+        if (t && t.type === 'tunnel') fill = '#0e0906';
+        else if (t && t.type === 'queen') fill = '#33240f';
+        else if (t && t.type === 'worker') fill = '#2c3418';
+        else if (t && t.type === 'soldier') fill = '#3a1c12';
+        else if (t && t.type === 'storage') fill = '#2c2414';
+        else if (t && t.type === 'speed') fill = '#142a26';
         hexPath(p.x, p.y, HEX - 1);
-        const isBlock = t && t.type && t.type !== 'dirt' && t.type !== 'tunnel';
-        if (isBlock) {
-          const gr = ctx.createLinearGradient(0, p.y - (HEX - 1), 0, p.y + (HEX - 1));
-          gr.addColorStop(0, shade(fill, 0.30)); gr.addColorStop(0.55, fill); gr.addColorStop(1, shade(fill, -0.4));
-          ctx.fillStyle = gr;
-        } else {
-          ctx.fillStyle = fill;
-        }
-        ctx.fill();
+        ctx.fillStyle = fill; ctx.fill();
         ctx.strokeStyle = stroke; ctx.lineWidth = 1; ctx.stroke();
         if (t && t.type !== 'dirt' && t.type !== 'tunnel') {
           // 投影基座（让建筑落在地上）
