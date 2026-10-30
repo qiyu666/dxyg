@@ -14,13 +14,27 @@ func _ready() -> void:
 func _build_menu() -> void:
 	menu = CanvasLayer.new()
 	add_child(menu)
+	# 全屏暗底色
+	var bg := ColorRect.new(); bg.color = Color("#14100b"); bg.set_anchors_preset(Control.PRESET_FULL_RECT); menu.add_child(bg)
 	var c := CenterContainer.new(); c.set_anchors_preset(Control.PRESET_FULL_RECT); menu.add_child(c)
 	var panel := PanelContainer.new()
-	var col := VBoxContainer.new(); col.alignment = BoxContainer.ALIGNMENT_CENTER
+	# 岩/木暗色面板 + 圆角 + 边框
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color("#1c1610", 1.0)
+	sb.border_color = Color("#3a2e1c", 1.0)
+	sb.set_border_width_all(2)
+	sb.set_corner_radius_all(10)
+	sb.content_margin_left = 14; sb.content_margin_right = 14; sb.content_margin_top = 14; sb.content_margin_bottom = 14
+	panel.add_theme_stylebox_override("panel", sb)
+	var col := VBoxContainer.new(); col.alignment = BoxContainer.ALIGNMENT_CENTER; col.add_theme_constant_override("separation", 6)
 	panel.add_child(col)
 	c.add_child(panel)
-	var t := Label.new(); t.text = "The Ants · 小小蚁国（3D 安卓）"; t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var t := Label.new(); t.text = "The Ants · 小小蚁国"; t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	t.add_theme_font_size_override("font_size", 20); t.add_theme_color_override("font_color", Color("#e6d8ba"))
 	col.add_child(t)
+	var sub := Label.new(); sub.text = "选蚁体颜色 · 开始关卡"; sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	sub.add_theme_color_override("font_color", Color("#8a7a5a"))
+	col.add_child(sub)
 	for i in Game.ANT_COLORS.size():
 		var btn := Button.new(); btn.text = Game.ANT_COLORS[i].name
 		btn.pressed.connect(_pick_color.bind(i)); col.add_child(btn)

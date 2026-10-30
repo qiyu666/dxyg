@@ -16,10 +16,11 @@ var food_cap := 70
 func _ready() -> void:
 	# 地面基底（一大片暗土）
 	var base := MeshInstance3D.new()
-	var bm := PlaneMesh.new(); bm.size = Vector2(220, 220)
-	var mat := StandardMaterial3D.new(); mat.albedo_color = Color("#140f0a")
+	var bm := PlaneMesh.new(); bm.size = Vector2(520, 520)
+	var mat := StandardMaterial3D.new(); mat.albedo_color = Color("#241c12")
 	bm.material = mat
 	base.mesh = bm
+	base.position = Vector3(0, -0.5, 0)
 	add_child(base)
 	_build_tiles()
 
@@ -69,14 +70,14 @@ func _retile_by_type(t: Dictionary) -> void:
 		return
 	var col := Color("#241a11")
 	match t.type:
-		"empty": col = Color("#241a11")
-		"dirt":  col = Color("#2a1d12")
-		"tunnel":col = Color("#0e0906")
-		"queen": col = Color("#33240f")
-		"worker":col = Color("#2c3418")
-		"soldier":col = Color("#3a1c12")
-		"storage":col = Color("#2c2414")
-		"speed": col = Color("#142a26")
+		"empty": col = Color("#3a2c1c")
+		"dirt":  col = Color("#4a3820")
+		"tunnel":col = Color("#1a140c")
+		"queen": col = Color("#4a3516")
+		"worker":col = Color("#3a4420")
+		"soldier":col = Color("#4a2416")
+		"storage":col = Color("#3a3218")
+		"speed": col = Color("#1c3a34")
 	var mat: StandardMaterial3D = m.material as StandardMaterial3D
 	if mat == null:
 		mat = StandardMaterial3D.new()

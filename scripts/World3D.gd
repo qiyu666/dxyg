@@ -38,35 +38,38 @@ func _set_env() -> void:
 	# 相机（俯视微倾，看土壤六格）
 	camera = Camera3D.new()
 	camera.name = "Camera3D"
-	camera.position = Vector3(0, 120, -70)
-	camera.fov = 42
-	camera.rotation = Vector3(1.05, 0, 0)
-	camera.rotation_x = -1.02
+	camera.position = Vector3(0, 120, -55)
+	camera.fov = 46
+	camera.near_clip = 0.5
+	camera.far_clip = 1500.0
 	add_child(camera)
 	camera.look_at(Vector3(0, 0, 0), Vector3.UP)
 	camera.make_current()
-	# 世界环境：暗、雾
+	# 世界环境：暗但有底色（非纯黑），轻雾
 	var env := Environment.new()
-	env.ambient_light_color = Color("#0a0806")
-	env.ambient_light_energy = 0.25
+	env.background_mode = Environment.BG_COLOR
+	env.background_color = Color("#0e1118")
+	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	env.ambient_light_color = Color("#2a3040")
+	env.ambient_light_energy = 0.9
 	env.fog_enabled = true
-	env.fog_light_color = Color("#0c0a08")
-	env.fog_density = 0.012
+	env.fog_light_color = Color("#0e1118")
+	env.fog_density = 0.0025
 	var env_node := WorldEnvironment.new()
 	env_node.environment = env
 	add_child(env_node)
-	# 顶光（很弱）
+	# 顶部主光（看清地面）
 	var dl := DirectionalLight3D.new()
-	dl.light_energy = 0.35
-	dl.light_color = Color("#c9b58a")
-	dl.position = Vector3(0, 60, 0)
+	dl.light_energy = 1.25
+	dl.light_color = Color("#e8dcc0")
+	dl.rotation = Vector3(-0.4, 0.25, 0)
 	add_child(dl)
 	# 蚁后巢心微光
 	var pl := PointLight3D.new()
 	pl.light_color = Color("#c9a055")
-	pl.light_energy = 2.2
-	pl.omni_range = 55.0
-	pl.position = Vector3(0, 3, 0)
+	pl.light_energy = 2.8
+	pl.omni_range = 80.0
+	pl.position = Vector3(0, 6, 0)
 	add_child(pl)
 
 func setup(idx: int) -> void:
