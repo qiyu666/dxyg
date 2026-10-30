@@ -178,3 +178,8 @@ body{
 .upg .u-sub{font-size:11px; color:var(--muted); margin-top:2px;}
 .upg button{padding:8px 12px; border-radius:10px; border:2px solid var(--amber); background:linear-gradient(180deg,#3a2c16,#241a11); color:#f0e2c0; font-size:12px; font-weight:800; cursor:pointer;}
 .upg button:disabled{opacity:.4;}
+
+/* 章节分组头 */
+.chap-hd{font-size:12px; font-weight:800; color:#c9821a; letter-spacing:1px; padding:12px 4px 5px; text-align:left;}
+.chap-hd:first-child{padding-top:2px;}
+.row-item.locked{opacity:.42;}

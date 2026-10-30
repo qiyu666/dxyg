@@ -35,9 +35,24 @@
   function upgradeReq(nextLevel) { return nextLevel === 2 ? 6 : 12; }
 
   const LEVELS = [
-    { name: '第一章 · 第一关', sub: '地下清剿', desc: '击败所有敌人。地下没有出口。' },
-    { name: '第一章 · 第二关', sub: '扩建蚁巢', desc: '额外建成 50 个兵蚁孵化室与 47 个工蚁孵化室。' },
+    // 第一章 · 地下（无地表层）
+    { chapter: '第一章 · 地下', name: '第一关', sub: '地下清剿', desc: '挖开泥土、击败钻出的全部敌人。', kind: 'clear', surface: false,
+      buriedKinds: ['mealworm','mealworm','mealworm','sowbug','sowbug','beetle','beetle','adultBeetle'], buriedFood: 6, foodAmount: 30, foodRate: 12, foodMax: 20 },
+    { chapter: '第一章 · 地下', name: '第二关', sub: '扩建蚁巢', desc: '建成 50 兵蚁 + 47 工蚁孵化室。', kind: 'expand', surface: false, raid: true,
+      buriedKinds: ['spider','spider','spider','webSpider','webSpider','enemyAnt','enemyAnt'], buriedFood: 22, foodAmount: 40, needS: 50, needW: 47, foodRate: 6, foodMax: 45 },
+    // 第二章 · 冲出地表（引入地表层）
+    { chapter: '第二章 · 冲出地表', name: '第一关', sub: '登上地表', desc: '打通竖井爬上地表，采集 30 食物。', kind: 'surface', surface: true, forageGoal: 30, surfBugs: ['beetle', 'spider'],
+      buriedKinds: [], buriedFood: 4, foodAmount: 30, foodRate: 12, foodMax: 20 },
+    { chapter: '第二章 · 冲出地表', name: '第二关', sub: '地表清剿', desc: '清剿全部地表昆虫，并采集 40 食物。', kind: 'surface', surface: true, forageGoal: 40, clearBugs: true, raid: true, surfBugs: ['spider', 'spider', 'beetle', 'beetle'],
+      buriedKinds: [], buriedFood: 4, foodAmount: 30, foodRate: 12, foodMax: 20 },
   ];
+  const CHAPTERS = Array.from(new Set(LEVELS.map(l => l.chapter)));
+
+  // ① 地表层几何：巢穴在原点(0,0)，地表清地偏到“上方”(y 负)，靠竖井连通
+  const SURF_C = { x: 0, y: -660 };   // 地表中心
+  const SURF_R = 250;                 // 地表半径
+  const SHAFT_S = { x: 0, y: SURF_C.y + SURF_R - 20 };  // 地表入口（靠近巢穴一侧）
+  const SHAFT_U = { x: 0, y: -LEVEL_RADIUS * 1.5 * HEX - 6 }; // 地下竖井口（巢穴顶端）
 
   // ---------------- 六边形 ----------------
   const DIRS = [[1, 0], [1, -1], [0, -1], [-1, 0], [-1, 1], [0, 1]];
@@ -129,7 +144,8 @@
     if (!h.evolutions) h.evolutions = { hp: 0, atk: 0, speed: 0, carry: 0, bigSoldier: false };
     if (h.pointsSpent == null) h.pointsSpent = 0;
     if (h.surfaceFood == null) h.surfaceFood = 0;
-    if (!h.cleared) h.cleared = [false, false];
+    if (!Array.isArray(h.cleared)) h.cleared = [];
+    while (h.cleared.length < LEVELS.length) h.cleared.push(false);
     if (!h.tiles) h.tiles = {};
   });
   function persist() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(homes)); } catch (e) { } }
@@ -145,14 +161,14 @@
   // 把静态敌人 + 泥土食物埋进土里（不是开局就在外面），玩家挖掘才钻出
   function plantBuried(st) {
     st.buried = {};
-    const kinds = st.idx === 0
-      ? ['mealworm', 'mealworm', 'mealworm', 'sowbug', 'sowbug', 'beetle', 'beetle', 'adultBeetle']
-      : ['spider', 'spider', 'spider', 'webSpider', 'webSpider', 'enemyAnt', 'enemyAnt'];
-    const foodN = st.idx === 0 ? 6 : 22;
+    const lv = st.lv || {};
+    const kinds = lv.buriedKinds || [];
+    const foodN = lv.buriedFood || 0;
+    const foodAmt = lv.foodAmount || 30;
     const used = new Set();
     const put = (obj) => { for (let t = 0; t < 60; t++) { const [q, r] = randRing(2, st.radius); const k = hkey(q, r); if (used.has(k)) continue; used.add(k); st.buried[k] = obj; return; } };
     for (const k of kinds) put({ enemy: k });
-    for (let i = 0; i < foodN; i++) put({ food: st.idx === 1 ? 40 : 30 });
+    for (let i = 0; i < foodN; i++) put({ food: foodAmt });
   }
 
   // 挖掘到一格 → 露出埋藏的敌人/食物
@@ -198,7 +214,7 @@
       color: colorIdx,
       food: 35, digBlocks: 10, jelly: 0, pointsSpent: 0, surfaceFood: 0,
       evolutions: { hp: 0, atk: 0, speed: 0, carry: 0, bigSoldier: false },
-      cleared: [false, false],
+      cleared: LEVELS.map(() => false),
       tiles: {},
     };
     makeQueenTiles(h.tiles);
@@ -322,7 +338,7 @@
       html += `<div class="row-item" data-i="${i}">
         <div class="dot" style="background:${COLORS[h.color].body}"></div>
         <div class="r-info"><div class="r-name">${h.name}</div>
-        <div class="r-sub">食物 ${Math.floor(h.food)} · 蚁皇浆 ${Math.floor(h.jelly)} · 通关 ${cleared}/2</div></div>
+        <div class="r-sub">食物 ${Math.floor(h.food)} · 蚁皇浆 ${Math.floor(h.jelly)} · 通关 ${cleared}/${LEVELS.length}</div></div>
         <div class="r-tag">载入 ›</div>
       </div>`;
     });
@@ -504,17 +520,20 @@
 
   function showLevels() {
     let html = '<h2>选择关卡</h2><div class="list">';
-    LEVELS.forEach((lv, i) => {
+    for (let i = 0; i < LEVELS.length; i++) {
+      const lv = LEVELS[i];
       const locked = i > 0 && !home.cleared[i - 1];
+      if (i === 0 || lv.chapter !== LEVELS[i - 1].chapter) html += `<div class="chap-hd">${lv.chapter}${lv.surface ? ' · 含地表' : ''}</div>`;
       html += `<div class="row-item ${locked ? 'locked' : ''}" data-lv="${i}">
         <div class="dot" style="background:${locked ? '#333' : '#c9821a'}"></div>
-        <div class="r-info"><div class="r-name">${lv.name}</div><div class="r-sub">${lv.sub} · ${home.cleared[i] ? '已通关' : lv.desc}</div></div>
-        <div class="r-tag">${locked ? '🔒' : '▶'}</div>
+        <div class="r-info"><div class="r-name">${lv.name} · ${lv.sub}</div><div class="r-sub">${home.cleared[i] ? '已通关' : lv.desc}</div></div>
+        <div class="r-tag">${locked ? '🔒' : (home.cleared[i] ? '✅' : '▶')}</div>
       </div>`;
-    });
+    }
     html += '</div><button class="ghost-btn" id="ov-back">返回蚁丘</button>';
     showOverlay(html);
     overlayCard.querySelectorAll('.row-item').forEach(el => {
+      if (el.classList.contains('locked')) return;
       el.onclick = () => startLevel(parseInt(el.dataset.lv, 10));
     });
     document.getElementById('ov-back').onclick = () => { hideOverlay(); enterHome(home); };
@@ -524,15 +543,16 @@
   //  关卡
   // =========================================================
   function createLevel(idx) {
+    const lv = LEVELS[idx];
     const st = {
-      idx, def: LEVELS[idx], radius: LEVEL_RADIUS, tiles: {},
+      idx, lv, def: lv, radius: LEVEL_RADIUS, tiles: {},
       food: 35, larva: 0, larvaTimer: 0,
       queenHp: 500, queenMax: 500,
       ants: [], enemies: [], foods: [], corpses: [], webs: [], buried: {},
       squads: [], selSquad: 0, buildMode: null,
-      builtSoldier: 0, builtWorker: 0,
+      builtSoldier: 0, builtWorker: 0, harvested: 0,
       spawnAcc: 0, over: false, win: false, time: 0,
-      raidTimer: 120, raidCount: 0, raidStolen: false, pointsSpent: 0, foodTimer: 5,
+      raidTimer: 120, raidCount: 0, raidStolen: false, pointsSpent: 0, foodTimer: (lv.foodRate || 12),
       uiTab: 'build', viewLayer: 'under', pheromone: false,
     };
     makeQueenTiles(st.tiles);
@@ -542,9 +562,11 @@
     for (let i = 0; i < 7; i++) {
       st.ants.push(makeAnt('worker', qp.x + (Math.random() - 0.5) * 30, qp.y + (Math.random() - 0.5) * 30, 0));
     }
+    if (lv.surface) for (let i = 0; i < 4; i++) st.ants.push(makeAnt('soldier', qp.x + (Math.random() - 0.5) * 24, qp.y + (Math.random() - 0.5) * 24, 0));
     // 敌人不再开局就出在面上；埋进泥土，玩家挖掘才钻出（照 地下蚁国）
-    if (idx === 1) spawnLevel2(st);   // 地表蛛丝洞穴 + 地面食物（「到地面」视图）
-    plantBuried(st);                  // 把静态敌人 + 泥土食物埋进土里
+    if (lv.kind === 'expand') spawnLevel2(st);   // 扩建关：地面铺食物（便于造孵化室）
+    plantBuried(st);                              // 把静态敌人 + 泥土食物埋进土里
+    if (lv.surface) spawnSurface(st);              // ① 第二章：地表清地（食物 + 昆虫 + 竖井）
     return st;
   }
 
@@ -624,23 +646,102 @@
       enemyAnt: { hp: 42, atk: 6, speed: 56, size: 1.0 },
     };
     const d = defs[kind];
-    return { kind, x, y, angle: 0, hp: d.hp, maxhp: d.hp, atk: d.atk, speed: d.speed, size: d.size, cd: 0, phase: Math.random() * 6, dead: false, steal: 0 };
+    return { kind, x, y, angle: 0, hp: d.hp, maxhp: d.hp, atk: d.atk, speed: d.speed, size: d.size, cd: 0, phase: Math.random() * 6, dead: false, steal: 0, zone: 'under' };
+  }
+
+  // ① 地表层：地下巢穴(原点) ↔ 地表清地(SURF_C)靠竖井连通
+  function zoneOf(x, y) { return Math.hypot(x - SURF_C.x, y - SURF_C.y) < SURF_R + 40 ? 'surface' : 'under'; }
+
+  function spawnSurface(st) {
+    for (let i = 0; i < 10; i++) {
+      const ang = Math.random() * 6.28, rad = 60 + Math.random() * (SURF_R - 100);
+      const x = SURF_C.x + Math.cos(ang) * rad, y = SURF_C.y + Math.sin(ang) * rad * 0.7;
+      st.foods.push({ x, y, amount: 40, surface: true });
+    }
+    const bugs = st.lv.surfBugs || ['beetle'];
+    for (const k of bugs) {
+      const e = makeEnemy(k, SURF_C.x + (Math.random() - 0.5) * SURF_R, SURF_C.y + (Math.random() - 0.5) * SURF_R * 0.7);
+      e.zone = 'surface'; st.enemies.push(e);
+    }
+    st.shafts = { under: { x: SHAFT_U.x, y: SHAFT_U.y }, surface: { x: SHAFT_S.x, y: SHAFT_S.y } };
+  }
+
+  function checkSurfaceWin() {
+    if (!S || S.over || S.win) return;
+    const lv = S.lv;
+    if ((S.harvested || 0) < lv.forageGoal) return;
+    if (lv.clearBugs && surfaceBugsLeft() > 0) return;
+    winLevel();
+  }
+
+  function applyLayerView() {
+    if (!S) return;
+    view.cx = 270;
+    if (!S._s0) S._s0 = view.s;                 // 记录 fitMap 基准缩放
+    const surf = S.viewLayer === 'surface';
+    view.s = surf ? S._s0 * 1.5 : S._s0;         // 地表放大看清实体
+    const wy = surf ? SURF_C.y : 0;
+    view.cy = LH * 0.5 - wy * view.s * TILT;
+  }
+
+  // 跨区移动：不同区先走到本区竖井口，到口后瞬移到对侧口
+  function routeMove(a, tx, ty, spd, dt) {
+    if (!S.shafts) { moveTo(a, tx, ty, spd, dt); return; }
+    const za = zoneOf(a.x, a.y), zb = zoneOf(tx, ty);
+    if (za === zb) { moveTo(a, tx, ty, spd, dt); return; }
+    const g = za === 'under' ? S.shafts.under : S.shafts.surface;
+    if (Math.hypot(g.x - a.x, g.y - a.y) > 10) moveTo(a, g.x, g.y, spd, dt);
+    else { const o = za === 'under' ? S.shafts.surface : S.shafts.under; a.x = o.x; a.y = o.y; moveTo(a, tx, ty, spd, dt); }
+  }
+
+  function drawSurfaceGround() {
+    // 地表清地（暗苔绿、可看得清；边缘渐黑 + 2.5D 压扁椭圆）
+    const g = ctx.createRadialGradient(SURF_C.x, SURF_C.y, 30, SURF_C.x, SURF_C.y, SURF_R + 60);
+    g.addColorStop(0, 'rgba(64,86,40,.72)'); g.addColorStop(0.6, 'rgba(44,60,28,.4)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(SURF_C.x, SURF_C.y, SURF_R + 60, (SURF_R + 60) * TILT, 0, 0, 7); ctx.fill();
+    // 地面纹理（斑点，去饱和）
+    ctx.fillStyle = 'rgba(0,0,0,.18)';
+    for (let i = 0; i < 40; i++) { const a = i * 1.7, r = (i * 37) % SURF_R; const x = SURF_C.x + Math.cos(a) * r, y = SURF_C.y + Math.sin(a) * r * 0.7; ctx.beginPath(); ctx.ellipse(x, y, 7, 4, a, 0, 7); ctx.fill(); }
+    // 竖井口（地表侧）
+    if (S.shafts) {
+      const s2 = S.shafts.surface;
+      ctx.fillStyle = '#0d0804'; ctx.beginPath(); ctx.ellipse(s2.x, s2.y, 18, 12, 0, 0, 7); ctx.fill();
+      ctx.strokeStyle = 'rgba(210,180,110,.7)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(s2.x, s2.y, 18, 12, 0, 0, 7); ctx.stroke();
+      ctx.fillStyle = 'rgba(230,210,175,.95)'; ctx.font = 'bold 10px system-ui'; ctx.textAlign = 'center'; ctx.fillText('↕ 竖井', s2.x, s2.y - 16);
+    }
+    // 标题
+    ctx.fillStyle = 'rgba(210,195,160,.75)'; ctx.font = '11px system-ui'; ctx.textAlign = 'center';
+    ctx.fillText('— 地表（采集 / 清剿）—', SURF_C.x, SURF_C.y - (SURF_R + 40));
   }
 
   function startLevel(idx) {
     Sfx.resume();
     S = createLevel(idx);
     screen = 'level'; buildMode = null; selectedHomeTile = null;
-    hideOverlay(); fitMap(LEVEL_RADIUS);
+    hideOverlay(); fitMap(LEVEL_RADIUS); applyLayerView();
     showHUD(true); showBottom(true);
     hud.larva.parentElement.style.display = '';
     refreshLevelHUD(); refreshBottom();
-    toast(idx === 0 ? '第一关：击败所有敌人' : '第二关：扩建蚁巢', 2000);
+    toast(S.lv.sub + '：' + S.lv.desc, 2400);
     setTimeout(() => { if (screen === 'level') toast('底部选建筑 → 点巢穴旁空地建孵化室', 2400); }, 1200);
     setTimeout(() => { if (screen === 'level') toast('选中队伍 → 点孵化室分配 → 点/拖动地图放信息素点（只保留最新）', 3200); }, 3600);
   }
 
   function threatsLeft() { let n = S.enemies.length; for (const k in S.buried) if (S.buried[k] && S.buried[k].enemy) n++; return n; }
+  function surfaceBugsLeft() { return S.enemies.filter(e => e.zone === 'surface').length; }
+  function levelObjectiveText() {
+    const lv = S.lv;
+    if (lv.kind === 'clear') return '威胁 ' + threatsLeft() + '（挖开泥土会钻出）';
+    if (lv.kind === 'expand') return '兵蚁孵化室 ' + S.builtSoldier + '/' + lv.needS + ' · 工蚁 ' + S.builtWorker + '/' + lv.needW;
+    if (lv.kind === 'surface') return '采集食物 ' + Math.floor(S.harvested || 0) + '/' + lv.forageGoal + (lv.clearBugs ? ' · 地表昆虫 ' + surfaceBugsLeft() : '');
+    return '';
+  }
+  function checkLevelWin() {
+    if (!S || S.over) return;
+    const lv = S.lv;
+    if (lv.kind === 'expand' && S.builtSoldier >= lv.needS && S.builtWorker >= lv.needW) winLevel();
+    else if (lv.kind === 'surface') checkSurfaceWin();
+  }
 
   function levelPop() {
     let w = 0, s = 0, wMax = 0, sMax = 0;
@@ -684,13 +785,13 @@
         <div class="maxctl"><button id="max-dec">−</button><span>${s.max}</span><button id="max-inc">＋</button></div></div>`;
       html += '<div class="hint">点上方选队伍 → 再点地图放信息素点（该队蚂蚁跟随）· 双击队伍=清空</div>';
     } else {
-      html += `<div class="hint">${S.viewLayer === 'surface' ? '正在看地表（蜘蛛/食物/出口）· 点「到地面」切回地下建造' : '点「到地面」看地表：蜘蛛、食物堆与出入口'}</div>`;
+      html += `<div class="hint">${S.viewLayer === 'surface' ? '地表：选「信息素」选队伍后点地图放信息素点，蚂蚁走竖井上去采集/战斗；点「到地面」回地下' : (S.lv.surface ? '点「到地面」爬上地表：选队伍+放信息素点，工蚁/兵蚁经竖井往返采集与清剿' : '本章为纯地下，无地表（第二章解锁地表）')}</div>`;
     }
     html += '<div class="panel-row main-tabs">' +
       `<button class="pbtn mtab ${tab === 'build' ? 'active' : ''}" data-tab="build"><span class="p-ico">🏛️</span><span class="p-nm">建筑</span></button>` +
       `<button class="pbtn mtab ${tab === 'ants' ? 'active' : ''}" data-tab="ants"><span class="p-ico">🐜</span><span class="p-nm">蚂蚁</span></button>` +
       `<button class="pbtn mtab ${tab === 'pher' ? 'active' : ''}" data-tab="pher"><span class="p-ico">📍</span><span class="p-nm">信息素</span></button>` +
-      `<button class="pbtn mtab ${tab === 'surf' ? 'active' : ''}" data-tab="surf"><span class="p-ico">⛰️</span><span class="p-nm">到地面</span></button>` + '</div>';
+      (S.lv && S.lv.surface ? `<button class="pbtn mtab ${tab === 'surf' ? 'active' : ''}" data-tab="surf"><span class="p-ico">⛰️</span><span class="p-nm">到地面</span></button>` : '') + '</div>';
     bottomContent.innerHTML = html;
 
     bottomContent.querySelectorAll('[data-arm]').forEach(b => b.onclick = () => {
@@ -703,6 +804,7 @@
       S.uiTab = b.dataset.tab;
       if (S.uiTab === 'surf') S.viewLayer = (S.viewLayer === 'surface' ? 'under' : 'surface');
       else S.viewLayer = 'under';
+      applyLayerView();
       if (S.uiTab !== 'pher') S.pheromone = false;
       Sfx.tap(); refreshLevelBottom();
     });
@@ -809,11 +911,6 @@
     refreshLevelBottom();
   }
 
-  function checkLevelWin() {
-    if (!S || S.over) return;
-    if (S.idx === 1 && S.builtSoldier >= 50 && S.builtWorker >= 47) winLevel();
-  }
-
   // 关卡内的蚁群升级点数（算法同家）
   function levelColonyPoints() {
     let pts = 0; const seen = new Set();
@@ -889,8 +986,8 @@
     // 食物补给（第二关持续刷新，便于扩建）
     S.foodTimer -= dt;
     if (S.foodTimer <= 0) {
-      S.foodTimer = (S.idx === 1 ? 6 : 12);
-      if (S.foods.length < (S.idx === 1 ? 45 : 20)) {
+      S.foodTimer = S.lv.foodRate || 12;
+      if (S.foods.length < (S.lv.foodMax || 20)) {
         const [q, r] = randRing(1, S.radius - 1);
         const p = h2p(q, r);
         S.foods.push({ x: p.x, y: p.y, amount: 30 });
@@ -961,8 +1058,7 @@
     updateFoods(dt);
 
     // 敌对蚂蚁来袭（第二关）
-    if (S.idx === 1) {
-      S.raidTimer -= dt;
+    if (S.lv.raid) {
       if (S.raidTimer <= 0) {
         S.raidTimer = 120; S.raidCount++; S.raidStolen = false;
         const [eq, er] = [S.radius, 0];
@@ -976,6 +1072,7 @@
       }
     }
 
+    checkLevelWin();
     refreshLevelHUD();
   }
 
@@ -1021,7 +1118,7 @@
           const put = Math.min(room, a.carry);
           S.food += put; a.carry -= put;
           if (a.carry <= 0) a.carry = 0;
-        } else moveTo(a, qp.x, qp.y, spd, dt);
+        } else routeMove(a, qp.x, qp.y, spd, dt);
         continue;
       }
       // 允许搬运：捡食物 / 分解尸体
@@ -1029,8 +1126,9 @@
         let best = null, bd = 26;
         for (const f of S.foods) { const d = Math.hypot(f.x - a.x, f.y - a.y); if (d < bd) { bd = d; best = f; } }
         if (best) {
-          const take = Math.min(best.amount, a.carryCap);
+          const take = best.surface ? Math.min(best.amount, 40) : Math.min(best.amount, a.carryCap);
           a.carry = take; best.amount -= take;
+          if (best.surface) S.harvested = (S.harvested || 0) + take;   // 采集即计入地表目标（不受巢穴存满限制）
           if (best.amount <= 0) S.foods.splice(S.foods.indexOf(best), 1);
           continue;
         }
@@ -1069,7 +1167,7 @@
         const gx = a.goalX != null ? a.goalX : sq.marker.q;
         const gy = a.goalY != null ? a.goalY : sq.marker.r;
         const md = Math.hypot(gx - a.x, gy - a.y);
-        if (md > 10) moveTo(a, gx, gy, spd, dt); else a.state = 'wait';
+        if (md > 10) routeMove(a, gx, gy, spd, dt); else a.state = 'wait';
       } else {
         a.goalX = null; a.goalY = null; a.state = 'idle';
         // 兵蚁守在蚁后附近；工蚁在巢口附近游走（让蚁群看起来是活的）
@@ -1096,10 +1194,21 @@
     for (const e of S.enemies) {
       if (e.hp <= 0) { if (!e.dead) { e.dead = true; killEnemy(e); } continue; }
       e.phase += dt * 10;
-      // 目标：最近蚂蚁，否则蚁后
+      const ez = e.zone || 'under';
+      // 目标：本区最近蚂蚁；无目标时——地表昆虫在清地游走（够不着蚁后），地下敌人冲向蚁后
       let target = null, td = 9999;
-      for (const a of S.ants) { if (a.hp <= 0) continue; const d = Math.hypot(a.x - e.x, a.y - e.y); if (d < td) { td = d; target = a; } }
-      if (!target || td > 260) { target = qp; td = Math.hypot(qp.x - e.x, qp.y - e.y); }
+      for (const a of S.ants) { if (a.hp <= 0) continue; if (zoneOf(a.x, a.y) !== ez) continue; const d = Math.hypot(a.x - e.x, a.y - e.y); if (d < td) { td = d; target = a; } }
+      if (!target || td > 260) {
+        if (ez === 'surface') {
+          if (!e.swander || Math.hypot(e.x - e.swander.x, e.y - e.swander.y) < 8 || Math.random() < dt * 0.4)
+            e.swander = { x: SURF_C.x + (Math.random() - 0.5) * SURF_R * 1.2, y: SURF_C.y + (Math.random() - 0.5) * SURF_R * 0.8 };
+          e.angle = Math.atan2(e.swander.y - e.y, e.swander.x - e.x);
+          const sd = Math.hypot(e.swander.x - e.x, e.swander.y - e.y);
+          if (sd > 4) { const st2 = e.speed * dt; e.x += (e.swander.x - e.x) / sd * st2; e.y += (e.swander.y - e.y) / sd * st2; }
+          continue;
+        }
+        target = qp; td = Math.hypot(qp.x - e.x, qp.y - e.y);
+      }
       const tx = target === qp ? qp.x : target.x;
       const ty = target === qp ? qp.y : target.y;
       const d = Math.hypot(tx - e.x, ty - e.y);
@@ -1143,7 +1252,7 @@
       return false;
     });
     // 第一关胜利
-    if (S.idx === 0 && threatsLeft() === 0 && S.time > 2) winLevel();
+    if (S.lv.kind === 'clear' && threatsLeft() === 0 && S.time > 2) winLevel();
   }
 
   function updateFoods(dt) {
@@ -1184,7 +1293,7 @@
     if (!S || S.over || S.win) return;
     S.win = true; Sfx.win();
     // 通关后不结束，可继续游玩；点 ← 回家时再结算
-    toast(S.idx === 0 ? '已通关！可继续收集食物，点 ← 回家结算' : '目标达成！可继续扩建，点 ← 回家结算', 2800);
+    toast('目标达成！可继续游玩，点 ← 回家结算', 2800);
   }
 
   function settleAndHome() {
@@ -1340,61 +1449,67 @@
     renderIdleBg();
     ctx.save();
     ctx.translate(view.cx, view.cy); ctx.scale(view.s, view.s * TILT);
-    if (S.viewLayer !== 'surface') {
-    drawHexGrid(S.tiles, LEVEL_RADIUS, false);
-    // 挖掘进度（工蚁正在挖的地道）
-    for (const key in S.tiles) { const td = S.tiles[key]; if (!td.dig) continue; const dd = key.split(','), pp = h2p(+dd[0], +dd[1]), fr = td.dig.progress / td.dig.need;
-      ctx.strokeStyle = 'rgba(0,0,0,.5)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(pp.x, pp.y, 10, 0, 7); ctx.stroke();
-      ctx.strokeStyle = 'rgba(255,190,50,.95)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(pp.x, pp.y, 10, -Math.PI / 2, -Math.PI / 2 + fr * 6.2832); ctx.stroke();
-      ctx.fillStyle = 'rgba(255,190,50,.9)'; ctx.font = '8px system-ui'; ctx.textAlign = 'center'; ctx.fillText('挖掘', pp.x, pp.y - 13);
-    }
-    // 前线泥土上的隐患提示（玩家知道哪里有危险 / 哪里只是土）
-    if (S.buried) for (const bk in S.buried) {
-      if (!isFrontierSoil(bk)) continue;
-      const bb = S.buried[bk], bd = bk.split(','), bp = h2p(+bd[0], +bd[1]);
-      if (bb.enemy) {
-        ctx.fillStyle = 'rgba(180,60,40,.30)'; ctx.beginPath(); ctx.ellipse(bp.x, bp.y, HEX * 0.5, HEX * 0.4, 0, 0, 7); ctx.fill();
-        ctx.fillStyle = 'rgba(235,120,90,.9)'; ctx.font = 'bold 12px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.fillText('!', bp.x, bp.y);
-      } else if (bb.food) {
-        ctx.fillStyle = 'rgba(200,160,70,.22)'; ctx.beginPath(); ctx.ellipse(bp.x, bp.y, HEX * 0.5, HEX * 0.4, 0, 0, 7); ctx.fill();
-        ctx.fillStyle = 'rgba(210,180,90,.75)'; ctx.font = '9px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.fillText('食', bp.x, bp.y);
+    const vz = S.viewLayer;                              // 'under' | 'surface'
+    const inVz = (x, y) => (vz === 'surface' ? zoneOf(x, y) === 'surface' : zoneOf(x, y) === 'under');
+    if (vz === 'under') {
+      drawHexGrid(S.tiles, LEVEL_RADIUS, false);
+      // 挖掘进度（工蚁正在挖的地道）
+      for (const key in S.tiles) { const td = S.tiles[key]; if (!td.dig) continue; const dd = key.split(','), pp = h2p(+dd[0], +dd[1]), fr = td.dig.progress / td.dig.need;
+        ctx.strokeStyle = 'rgba(0,0,0,.5)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(pp.x, pp.y, 10, 0, 7); ctx.stroke();
+        ctx.strokeStyle = 'rgba(255,190,50,.95)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(pp.x, pp.y, 10, -Math.PI / 2, -Math.PI / 2 + fr * 6.2832); ctx.stroke();
+        ctx.fillStyle = 'rgba(255,190,50,.9)'; ctx.font = '8px system-ui'; ctx.textAlign = 'center'; ctx.fillText('挖掘', pp.x, pp.y - 13);
       }
-      ctx.textBaseline = 'alphabetic';
+      // 前线泥土上的隐患提示
+      if (S.buried) for (const bk in S.buried) {
+        if (!isFrontierSoil(bk)) continue;
+        const bb = S.buried[bk], bd = bk.split(','), bp = h2p(+bd[0], +bd[1]);
+        if (bb.enemy) {
+          ctx.fillStyle = 'rgba(180,60,40,.30)'; ctx.beginPath(); ctx.ellipse(bp.x, bp.y, HEX * 0.5, HEX * 0.4, 0, 0, 7); ctx.fill();
+          ctx.fillStyle = 'rgba(235,120,90,.9)'; ctx.font = 'bold 12px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.fillText('!', bp.x, bp.y);
+        } else if (bb.food) {
+          ctx.fillStyle = 'rgba(200,160,70,.22)'; ctx.beginPath(); ctx.ellipse(bp.x, bp.y, HEX * 0.5, HEX * 0.4, 0, 0, 7); ctx.fill();
+          ctx.fillStyle = 'rgba(210,180,90,.75)'; ctx.font = '9px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.fillText('食', bp.x, bp.y);
+        }
+        ctx.textBaseline = 'alphabetic';
+      }
+      // 蛛丝洞穴
+      for (const w of S.webs) {
+        if (w.triggered) continue;
+        ctx.fillStyle = 'rgba(220,220,235,.18)'; ctx.beginPath(); ctx.arc(w.x, w.y, 26, 0, 7); ctx.fill();
+        ctx.strokeStyle = 'rgba(230,230,245,.4)'; ctx.lineWidth = 1.5;
+        for (let i = 0; i < 8; i++) { const a = i / 8 * 6.28; ctx.beginPath(); ctx.moveTo(w.x, w.y); ctx.lineTo(w.x + Math.cos(a) * 30, w.y + Math.sin(a) * 30); ctx.stroke(); }
+      }
+      // 竖井（巢穴顶端的洞口，去地表）
+      if (S.shafts) { const sh = S.shafts.under; ctx.fillStyle = '#0d0804'; ctx.beginPath(); ctx.ellipse(sh.x, sh.y, 16, 10, 0, 0, 7); ctx.fill(); ctx.strokeStyle = 'rgba(210,180,110,.6)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(sh.x, sh.y, 16, 10, 0, 0, 7); ctx.stroke(); ctx.fillStyle = 'rgba(220,205,175,.9)'; ctx.font = '9px system-ui'; ctx.textAlign = 'center'; ctx.fillText('↕ 竖井', sh.x, sh.y - 16); }
+    } else {
+      drawSurfaceGround();
     }
-    // 蛛丝洞穴
-    for (const w of S.webs) {
-      if (w.triggered) continue;
-      ctx.fillStyle = 'rgba(220,220,235,.18)';
-      ctx.beginPath(); ctx.arc(w.x, w.y, 26, 0, 7); ctx.fill();
-      ctx.strokeStyle = 'rgba(230,230,245,.4)'; ctx.lineWidth = 1.5;
-      for (let i = 0; i < 8; i++) { const a = i / 8 * 6.28; ctx.beginPath(); ctx.moveTo(w.x, w.y); ctx.lineTo(w.x + Math.cos(a) * 30, w.y + Math.sin(a) * 30); ctx.stroke(); }
-    }
-    // 食物（去饱和土黄 + 顶部微光）
+    // 食物（仅本区）
     for (const f of S.foods) {
+      if (!inVz(f.x, f.y)) continue;
       const r = 3 + Math.min(5, f.amount / 8);
-      ctx.fillStyle = '#8a6a30';
+      ctx.fillStyle = f.surface ? '#b98a34' : '#8a6a30';
       ctx.beginPath(); ctx.arc(f.x, f.y, r, 0, 7); ctx.fill();
-      ctx.fillStyle = 'rgba(200,170,90,.5)';
-      ctx.beginPath(); ctx.arc(f.x - r * 0.25, f.y - r * 0.25, r * 0.5, 0, 7); ctx.fill();
+      ctx.fillStyle = 'rgba(210,180,90,.5)'; ctx.beginPath(); ctx.arc(f.x - r * 0.25, f.y - r * 0.25, r * 0.5, 0, 7); ctx.fill();
     }
-    // 尸体
+    // 尸体（仅本区）
     for (const c of S.corpses) {
-      ctx.fillStyle = '#4a3320';
-      ctx.beginPath(); ctx.ellipse(c.x, c.y, 7, 5, 0.3, 0, 7); ctx.fill();
+      if (!inVz(c.x, c.y)) continue;
+      ctx.fillStyle = '#4a3320'; ctx.beginPath(); ctx.ellipse(c.x, c.y, 7, 5, 0.3, 0, 7); ctx.fill();
       ctx.fillStyle = 'rgba(210,190,140,.7)'; ctx.font = '8px system-ui'; ctx.textAlign = 'center';
       ctx.fillText(String(c.left), c.x, c.y - 8);
     }
-    // 单位（2.5D 按深度 y 远→近 排序，近的盖住远的）
+    // 单位（仅本区，按 2.5D 深度 y 远→近 排序）
     const units = [];
-    for (const e of S.enemies) units.push({ d: e.y, f: () => drawEnemy(e) });
-    for (const a of S.ants) if (a.hp > 0) units.push({ d: a.y, f: () => drawAnt(a.x, a.y, a.angle, a.kind === 'soldier' ? 1.35 : 1.05, antColor(a), a.phase, a.carry) });
+    for (const e of S.enemies) if (inVz(e.x, e.y)) units.push({ d: e.y, f: () => drawEnemy(e) });
+    for (const a of S.ants) if (a.hp > 0 && inVz(a.x, a.y)) units.push({ d: a.y, f: () => drawAnt(a.x, a.y, a.angle, a.kind === 'soldier' ? 1.35 : 1.05, antColor(a), a.phase, a.carry) });
     units.sort((p, q) => p.d - q.d);
     for (const u of units) u.f();
-    // 信息素（当前队伍）
+    // 信息素（本区）
     const sq = S.squads[S.selSquad];
-    if (sq && sq.marker) {
+    if (sq && sq.marker && inVz(sq.marker.q, sq.marker.r)) {
       const m = sq.marker;
       const g = ctx.createRadialGradient(m.q, m.r, 1, m.q, m.r, 22);
       g.addColorStop(0, sq.allowAttack ? 'rgba(190,50,35,.5)' : 'rgba(120,190,90,.45)');
@@ -1403,14 +1518,13 @@
       ctx.strokeStyle = sq.allowAttack ? 'rgba(210,90,60,.8)' : 'rgba(150,210,120,.8)';
       ctx.lineWidth = 1.6; ctx.beginPath(); ctx.arc(m.q, m.r, 8, 0, 7); ctx.stroke();
     }
-    // 蚁后
-    const qp = h2p(0, 0);
-    ctx.save(); ctx.translate(qp.x, qp.y);
-    ctx.strokeStyle = 'rgba(240,180,41,.5)'; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.arc(0, 0, HEX * 1.6, 0, 7); ctx.stroke();
-    ctx.restore();
-    } else {
-      drawSurfaceWorld();
+    // 蚁后（仅地下）
+    if (vz === 'under') {
+      const qp = h2p(0, 0);
+      ctx.save(); ctx.translate(qp.x, qp.y);
+      ctx.strokeStyle = 'rgba(240,180,41,.5)'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(0, 0, HEX * 1.6, 0, 7); ctx.stroke();
+      ctx.restore();
     }
     ctx.restore();
 
@@ -1418,9 +1532,9 @@
     const topScrim = ctx.createLinearGradient(0, 0, 0, 90); topScrim.addColorStop(0, 'rgba(0,0,0,.62)'); topScrim.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.fillStyle = topScrim; ctx.fillRect(0, 0, LW, 90);
     ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(232,214,170,.95)'; ctx.font = 'bold 17px system-ui';
-    ctx.fillText(S.def.name, LW / 2, 34);
+    ctx.fillText(S.lv.name + ' · ' + S.lv.sub + '  ' + S.lv.chapter, LW / 2, 34);
     ctx.fillStyle = 'rgba(200,185,150,.85)'; ctx.font = '11px system-ui';
-    ctx.fillText(S.idx === 0 ? ('威胁 ' + threatsLeft() + '（挖开泥土会钻出）') : ('兵蚁孵化室 ' + S.builtSoldier + '/50 · 工蚁孵化室 ' + S.builtWorker + '/47'), LW / 2, 54);
+    ctx.fillText(levelObjectiveText(), LW / 2, 54);
     ctx.fillStyle = 'rgba(190,175,145,.75)'; ctx.font = '10px system-ui';
     ctx.fillText('蚁后 ❤ ' + Math.max(0, Math.ceil(S.queenHp)) + '  ·  升级点数 ' + (levelColonyPoints() - (S.pointsSpent || 0)) + (S.win ? '  ·  ✅ 已通关·继续游玩' : ''), LW / 2, 72);
     const bottomScrim = ctx.createLinearGradient(0, LH - 40, 0, LH); bottomScrim.addColorStop(0, 'rgba(0,0,0,0)'); bottomScrim.addColorStop(1, 'rgba(0,0,0,.6)');
@@ -1744,10 +1858,17 @@
   function handleLevelTap(lx, ly) {
     const w = s2w(lx, ly);
     const h = p2h(w.x, w.y);
+    // 地表视图：不能建/挖（地下专属），但能放信息素点（蚂蚁走竖井上去）
+    if (S.viewLayer === 'surface') {
+      if (buildMode) { toast('地表不能建造/挖掘（先点「到地面」回地下）', 1300); return; }
+      setSquadMarker(S.selSquad, w.x, w.y);
+      Sfx.tap();
+      const cnt = S.ants.filter(a => a.squad === S.selSquad).length;
+      toast('队伍 ' + 'ⅠⅡⅢⅣⅤ'[S.selSquad] + ' 已在地表放信息素点' + (cnt ? '' : '（该队还没蚂蚁，先建孵化室并分配）'), 1600);
+      return;
+    }
     if (hdist(h.q, h.r, 0, 0) > S.radius) return;
     const key = hkey(h.q, h.r);
-    // 地表视图：只看不建
-    if (S.viewLayer === 'surface') { toast('地表：看蜘蛛/食物/出口；点「到地面」切回地下建造', 1200); return; }
     // 拆除模式
     if (buildMode === 'demolish') {
       const t = S.tiles[key];
@@ -1832,7 +1953,7 @@
     upgradePoints: (q, r, type) => upgradePoints(home, q, r, type),
     colonyPoints: () => colonyPoints(home),
     get view() { return view; },
-    h2p, p2h, s2w, w2s, hkey,
+    h2p, p2h, s2w, w2s, hkey, applyLayerView,
     step(sec) { if (!S) return; const n = Math.round((sec || 0) / 0.05); for (let i = 0; i < n; i++) levelUpdate(0.05); render(); },
     placeMarker(wx, wy) { if (!S) return; setSquadMarker(S.selSquad, wx, wy); },
     homeTick(sec) { if (!home) return null; const n = Math.round((sec || 0) / 0.05); for (let i = 0; i < n; i++) homeUpdate(0.05); return { food: Math.round(home.food), surface: Math.round(home.surfaceFood) }; },
