@@ -81,14 +81,23 @@
   }
 
   const view = { s: 1, cx: 270, cy: 470 };
+  const TILT = 0.7; // 2.5D：地面纵向压缩（俯视偏角），单位再抵消回来使其“立起来”
   function fitMap(radius) {
     const maxX = HEX * SQ3 * radius + HEX * SQ3 / 2;
     const maxY = HEX * 1.5 * radius + HEX;
-    view.s = Math.min(520 / (2 * maxX), 700 / (2 * maxY));
-    view.cx = 270; view.cy = 470;
+    view.s = Math.min(500 / (2 * maxX), 830 / (2 * maxY * TILT));
+    view.cx = 270; view.cy = 462;
   }
-  function w2s(x, y) { return { x: view.cx + x * view.s, y: view.cy + y * view.s }; }
-  function s2w(x, y) { return { x: (x - view.cx) / view.s, y: (y - view.cy) / view.s }; }
+  function w2s(x, y) { return { x: view.cx + x * view.s, y: view.cy + y * view.s * TILT }; }
+  function s2w(x, y) { return { x: (x - view.cx) / view.s, y: (y - view.cy) / (view.s * TILT) }; }
+  // 颜色明暗（amt -1..1，负数变暗）
+  function shade(hex, amt) {
+    const c = hex.replace('#', ''); const n = parseInt(c, 16);
+    let r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+    const f = amt < 0 ? 0 : 255, p = Math.abs(amt);
+    r = Math.round(r + (f - r) * p); g = Math.round(g + (f - g) * p); b = Math.round(b + (f - b) * p);
+    return 'rgb(' + r + ',' + g + ',' + b + ')';
+  }
 
   // ---------------- 音效 ----------------
   const Sfx = (function () {
@@ -1218,10 +1227,22 @@
   }
 
   function renderIdleBg() {
-    // 深色岩洞基底（上略亮、下发黑）
+    // 洞窟纵深：远端/前景发黑、中地面受光
     const g = ctx.createLinearGradient(0, 0, 0, LH);
-    g.addColorStop(0, '#1c150e'); g.addColorStop(0.5, '#140f09'); g.addColorStop(1, '#0a0705');
+    g.addColorStop(0, '#040302'); g.addColorStop(0.32, '#180f08');
+    g.addColorStop(0.55, '#241a10'); g.addColorStop(0.82, '#100a06'); g.addColorStop(1, '#040302');
     ctx.fillStyle = g; ctx.fillRect(0, 0, LW, LH);
+    // 顶部落石/钟乳石剪影（纵深）
+    ctx.fillStyle = 'rgba(0,0,0,.5)';
+    for (let i = 0; i < 14; i++) {
+      const x = (i / 13) * LW, w = 20 + (i % 4) * 8, h = 16 + (i % 5) * 9;
+      ctx.beginPath(); ctx.moveTo(x - w, 0); ctx.lineTo(x + w, 0); ctx.lineTo(x, h); ctx.closePath(); ctx.fill();
+    }
+    // 一束光自洞顶洒下（2.5D 光源）
+    const shaft = ctx.createLinearGradient(0, 0, 0, LH * 0.6);
+    shaft.addColorStop(0, 'rgba(190,150,80,.11)'); shaft.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = shaft;
+    ctx.beginPath(); ctx.moveTo(LW * 0.32, 0); ctx.lineTo(LW * 0.68, 0); ctx.lineTo(LW * 0.82, LH * 0.55); ctx.lineTo(LW * 0.18, LH * 0.55); ctx.closePath(); ctx.fill();
     // 岩层 / 土壤斑驳纹理（固定种子，不闪烁）
     for (let i = 0; i < 240; i++) {
       const x = (i * 137.3) % LW, y = (i * 91.7) % LH, r = 3 + (i % 8);
@@ -1232,8 +1253,8 @@
     ctx.fillStyle = 'rgba(70,96,52,.10)';
     for (let i = 0; i < 40; i++) { const x = (i * 211.3) % LW, y = (i * 137.9) % LH; ctx.beginPath(); ctx.ellipse(x, y, 8 + (i % 6), 5 + (i % 4), 0, 0, 7); ctx.fill(); }
     // 中心微光（蚁群被照亮，四周发黑→压迫感）
-    const rg = ctx.createRadialGradient(LW / 2, LH * 0.46, 10, LW / 2, LH * 0.46, LH * 0.55);
-    rg.addColorStop(0, 'rgba(170,140,85,.14)'); rg.addColorStop(0.6, 'rgba(0,0,0,0)');
+    const rg = ctx.createRadialGradient(LW / 2, LH * 0.48, 8, LW / 2, LH * 0.48, LH * 0.62);
+    rg.addColorStop(0, 'rgba(190,150,88,.22)'); rg.addColorStop(0.55, 'rgba(120,95,55,.08)'); rg.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.fillStyle = rg; ctx.fillRect(0, 0, LH, LH);
   }
 
@@ -1271,7 +1292,7 @@
     if (!piles) { ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(200,190,160,.4)'; ctx.fillText('地表暂无食物（通关/拆除会落到这里）', LW / 2, bTop + bH * 0.5 + 3); }
     // 巢
     ctx.save();
-    ctx.translate(view.cx, view.cy); ctx.scale(view.s, view.s);
+    ctx.translate(view.cx, view.cy); ctx.scale(view.s, view.s * TILT);
     drawHexGrid(home.tiles, HOME_RADIUS, true);
     ctx.restore();
     // 资源行
@@ -1318,7 +1339,7 @@
   function renderLevel() {
     renderIdleBg();
     ctx.save();
-    ctx.translate(view.cx, view.cy); ctx.scale(view.s, view.s);
+    ctx.translate(view.cx, view.cy); ctx.scale(view.s, view.s * TILT);
     if (S.viewLayer !== 'surface') {
     drawHexGrid(S.tiles, LEVEL_RADIUS, false);
     // 挖掘进度（工蚁正在挖的地道）
@@ -1365,13 +1386,12 @@
       ctx.fillStyle = 'rgba(210,190,140,.7)'; ctx.font = '8px system-ui'; ctx.textAlign = 'center';
       ctx.fillText(String(c.left), c.x, c.y - 8);
     }
-    // 敌人
-    for (const e of S.enemies) drawEnemy(e);
-    // 蚂蚁
-      for (const a of S.ants) {
-      if (a.hp <= 0) continue;
-      drawAnt(a.x, a.y, a.angle, a.kind === 'soldier' ? 1.35 : 1.05, antColor(a), a.phase, a.carry);
-    }
+    // 单位（2.5D 按深度 y 远→近 排序，近的盖住远的）
+    const units = [];
+    for (const e of S.enemies) units.push({ d: e.y, f: () => drawEnemy(e) });
+    for (const a of S.ants) if (a.hp > 0) units.push({ d: a.y, f: () => drawAnt(a.x, a.y, a.angle, a.kind === 'soldier' ? 1.35 : 1.05, antColor(a), a.phase, a.carry) });
+    units.sort((p, q) => p.d - q.d);
+    for (const u of units) u.f();
     // 信息素（当前队伍）
     const sq = S.squads[S.selSquad];
     if (sq && sq.marker) {
@@ -1425,15 +1445,28 @@
       for (let r = Math.max(-radius, -q - radius); r <= Math.min(radius, -q + radius); r++) {
         const p = h2p(q, r);
         const t = tiles[hkey(q, r)];
-        let fill = '#241a11', stroke = 'rgba(0,0,0,.4)';
-        if (t && t.type === 'tunnel') fill = '#0e0906';
-        else if (t && t.type === 'queen') fill = '#33240f';
-        else if (t && t.type === 'worker') fill = '#2c3418';
-        else if (t && t.type === 'soldier') fill = '#3a1c12';
-        else if (t && t.type === 'storage') fill = '#2c2414';
-        else if (t && t.type === 'speed') fill = '#142a26';
+        let fill = '#332414', stroke = 'rgba(0,0,0,.4)';
+        if (t && t.type === 'tunnel') fill = '#120c07';
+        else if (t && t.type === 'queen') fill = '#4a3618';
+        else if (t && t.type === 'worker') fill = '#3f4a24';
+        else if (t && t.type === 'soldier') fill = '#4a2416';
+        else if (t && t.type === 'storage') fill = '#3a3218';
+        else if (t && t.type === 'speed') fill = '#1e4038';
+        else if (t && t.type === 'dirt') fill = '#3a2c18';
+        // 2.5D 侧墙（底部偏移的深色六边形，先画，作为厚度）
+        if (t && t.type && t.type !== 'dirt' && t.type !== 'tunnel') {
+          hexPath(p.x, p.y + 5, HEX - 1); ctx.fillStyle = shade(fill, -0.55); ctx.fill();
+        }
         hexPath(p.x, p.y, HEX - 1);
-        ctx.fillStyle = fill; ctx.fill();
+        const isBlock = t && t.type && t.type !== 'dirt' && t.type !== 'tunnel';
+        if (isBlock) {
+          const gr = ctx.createLinearGradient(0, p.y - (HEX - 1), 0, p.y + (HEX - 1));
+          gr.addColorStop(0, shade(fill, 0.30)); gr.addColorStop(0.55, fill); gr.addColorStop(1, shade(fill, -0.4));
+          ctx.fillStyle = gr;
+        } else {
+          ctx.fillStyle = fill;
+        }
+        ctx.fill();
         ctx.strokeStyle = stroke; ctx.lineWidth = 1; ctx.stroke();
         if (t && t.type !== 'dirt' && t.type !== 'tunnel') {
           // 投影基座（让建筑落在地上）
@@ -1506,8 +1539,10 @@
 
   function drawQueen(x, y, h) {
     const c = COLORS[home.color];
-    ctx.save(); ctx.translate(x, y);
-    ctx.fillStyle = 'rgba(0,0,0,.4)'; ctx.beginPath(); ctx.ellipse(0, h * 0.5, h * 0.5, h * 0.2, 0, 0, 7); ctx.fill();
+    // 地面投影
+    ctx.fillStyle = 'rgba(0,0,0,.42)'; ctx.beginPath(); ctx.ellipse(x, y + h * 0.42, h * 0.55, h * 0.24, 0, 0, 7); ctx.fill();
+    // 立起的身躯（抵消纵向压缩）
+    ctx.save(); ctx.translate(x, y); ctx.scale(1, 1 / TILT);
     ctx.fillStyle = c.body;
     ctx.beginPath(); ctx.ellipse(-h * 0.3, 0, h * 0.34, h * 0.24, 0.4, 0, 7); ctx.fill();
     ctx.beginPath(); ctx.ellipse(0, 0, h * 0.16, h * 0.15, 0, 0, 7); ctx.fill();
@@ -1530,7 +1565,10 @@
       g.addColorStop(0, 'rgba(150,30,20,.35)'); g.addColorStop(1, 'rgba(0,0,0,0)');
       ctx.fillStyle = g; ctx.beginPath(); ctx.arc(e.x, e.y, 26 * s, 0, 7); ctx.fill();
     }
-    ctx.save(); ctx.translate(e.x, e.y); ctx.rotate(e.angle);
+    // 地面投影
+    ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(e.x, e.y + 3 * s, 11 * s, 4 * s, 0, 0, 7); ctx.fill();
+    // 立起的身躯（抵消纵向压缩）
+    ctx.save(); ctx.translate(e.x, e.y); ctx.scale(1, 1 / TILT); ctx.rotate(e.angle);
     if (e.kind === 'mealworm') {
       ctx.fillStyle = '#d8b070';
       for (let i = -2; i <= 2; i++) { ctx.beginPath(); ctx.arc(i * 5 * s, 0, 4 * s, 0, 7); ctx.fill(); }
@@ -1569,9 +1607,10 @@
   }
 
   function drawAnt(x, y, ang, s, colors, phase, carry) {
-    ctx.save(); ctx.translate(x, y); ctx.rotate(ang);
-    // 地面阴影
-    ctx.fillStyle = 'rgba(0,0,0,.28)'; ctx.beginPath(); ctx.ellipse(-1 * s, 1.6 * s, 6 * s, 2.4 * s, 0, 0, 7); ctx.fill();
+    // 地面投影（压扁在地面）
+    ctx.fillStyle = 'rgba(0,0,0,.34)'; ctx.beginPath(); ctx.ellipse(x, y + 1.5 * s, 7 * s, 2.8 * s, 0, 0, 7); ctx.fill();
+    // 立起来的身躯（抵消纵向压缩 → 有高度感）
+    ctx.save(); ctx.translate(x, y); ctx.scale(1, 1 / TILT); ctx.rotate(ang);
     // 六足（三对，从胸伸出，摆动）
     ctx.strokeStyle = colors.dark; ctx.lineWidth = Math.max(0.6, 0.8 * s);
     for (let i = 0; i < 3; i++) {
