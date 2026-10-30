@@ -248,7 +248,7 @@ body{
   };
 
   // 孵化方格生命周期：empty(工蚁取卵) → egg(卵) → larva(白幼虫) → pupa(黄蛹) → 羽化(耗食物)
-  const HATCH_TIME = { empty: 4, egg: 5, larva: 7 };   // 蛹阶段需食物，不计时
+  const HATCH_TIME = { empty: 1, egg: 2, larva: 2 };   // 总≈5秒孵化；蛹阶段需食物(不计时)
   function hatchCost(type, level) { const base = type === 'soldier' ? 5 : 2; return Math.round(base * (1 + 0.25 * ((level || 1) - 1))); }
   function hatchStatMul(level) { return 1 + 0.35 * ((level || 1) - 1); }   // 孵化方格升级→蚁更强
   function idleWorkers() { let n = 0; for (const a of S.ants) { if (a.hp <= 0 || a.kind !== 'worker') continue; if (a.carry > 0 || a.digKey) continue; n++; } return n; }
@@ -780,7 +780,7 @@ body{
       uiTab: 'build', viewLayer: 'under', pheromone: false,
     };
     makeQueenTiles(st.tiles);
-    for (let i = 0; i < 5; i++) st.squads.push({ assigned: new Set(), marker: null, allowAttack: true, allowCarry: true, max: 20 });
+    for (let i = 0; i < 5; i++) st.squads.push({ assigned: new Set(), marker: null, allowAttack: true, allowCarry: true });
     // 初始 7 只工蚁，默认分配到队伍 I
     const qp = h2p(0, 0);
     for (let i = 0; i < 7; i++) {
@@ -1005,8 +1005,7 @@ body{
       const s = S.squads[S.selSquad];
       html += `<div class="panel-row sq-opts">
         <button class="tog ${s.allowAttack ? 'on' : 'off'}" id="tog-atk">${s.allowAttack ? '⚔ 攻' : '⚔ 停'}</button>
-        <button class="tog ${s.allowCarry ? 'on' : 'off'}" id="tog-carry">${s.allowCarry ? '🍃 搬' : '🍃 停'}</button>
-        <div class="maxctl"><button id="max-dec">−</button><span>${s.max}</span><button id="max-inc">＋</button></div></div>`;
+        <button class="tog ${s.allowCarry ? 'on' : 'off'}" id="tog-carry">${s.allowCarry ? '🍃 搬' : '🍃 停'}</button></div>`;
       html += '<div class="hint">点上方选队伍 → 再点地图放信息素点（该队蚂蚁跟随）· 双击队伍=清空</div>';
     } else {
       html += `<div class="hint">${S.viewLayer === 'surface' ? '地表：选「信息素」选队伍后点地图放信息素点，蚂蚁走竖井上去采集/战斗；点「到地面」回地下' : (S.lv.surface ? '点「到地面」爬上地表：选队伍+放信息素点，工蚁/兵蚁经竖井往返采集与清剿' : '本章为纯地下，无地表（第二章解锁地表）')}</div>`;
@@ -1044,8 +1043,6 @@ body{
     });
     const t1 = document.getElementById('tog-atk'); if (t1) t1.onclick = () => { S.squads[S.selSquad].allowAttack = !S.squads[S.selSquad].allowAttack; refreshLevelBottom(); };
     const t2 = document.getElementById('tog-carry'); if (t2) t2.onclick = () => { S.squads[S.selSquad].allowCarry = !S.squads[S.selSquad].allowCarry; refreshLevelBottom(); };
-    const m1 = document.getElementById('max-dec'); if (m1) m1.onclick = () => { S.squads[S.selSquad].max = Math.max(1, S.squads[S.selSquad].max - 1); refreshLevelBottom(); };
-    const m2 = document.getElementById('max-inc'); if (m2) m2.onclick = () => { S.squads[S.selSquad].max = Math.min(60, S.squads[S.selSquad].max + 1); refreshLevelBottom(); };
   }
 
   // 关卡建造/挖掘
@@ -1126,7 +1123,7 @@ body{
     for (const [dq, dr] of DIRS) { const nt = S.tiles[hkey(q + dq, r + dr)]; if (nt && nt.type !== 'dirt') { adj = true; break; } }
     if (!adj) { toast('需挨着已有区域'); return; }
     if (!S.tiles[key] || S.tiles[key].type !== 'dirt') S.tiles[key] = { type: 'dirt' };
-    S.tiles[key].dig = S.tiles[key].dig || { progress: 0, need: 8 };
+    S.tiles[key].dig = S.tiles[key].dig || { progress: 0, need: 2 };
     const p = h2p(q, r);
     let best = null, bd = 1e9;
     for (const a of S.ants) { if (a.hp <= 0 || a.carry > 0 || a.digKey) continue; if (a.kind !== 'worker') continue; const d = Math.hypot(a.x - p.x, a.y - p.y); if (d < bd) { bd = d; best = a; } }
@@ -1205,7 +1202,7 @@ body{
 
     // 女王产卵
     S.larvaTimer += dt;
-    if (S.larvaTimer >= 6) { S.larvaTimer -= 6; S.larva = Math.min(50, S.larva + 1); }
+    if (S.larvaTimer >= 3) { S.larvaTimer -= 3; S.larva = Math.min(150, S.larva + 1); }
 
     // 食物补给（第二关持续刷新，便于扩建）
     S.foodTimer -= dt;
@@ -1233,7 +1230,7 @@ body{
       const fm = h.fast ? 0.5 : 1;          // 补充兵力：死亡后快速孵化
       if (h.stage === 'empty') {
         // 工蚁去蚁后取卵：需有卵(蚁后产)+有空闲工蚁；否则停滞（工蚁不足→卵无法及时搬）
-        const canCarry = S.larva > 0 && idleWorkers() > 0 && S.ants.length < 150;
+        const canCarry = S.larva > 0 && idleWorkers() > 0;
         if (!canCarry) { h.t = 0; continue; }
         h.t += dt * fm;
         if (h.t >= HATCH_TIME.empty) { h.stage = 'egg'; h.t = 0; S.larva--; }
@@ -1245,9 +1242,7 @@ body{
         if (h.t >= HATCH_TIME.larva) { h.stage = 'pupa'; h.t = 0; }
       } else if (h.stage === 'pupa') {
         const cost = hatchCost(t.type, t.level);
-        const squadAnts = S.ants.filter(a => a.squad === squad).length;
-        if (squadAnts >= sq.max || S.ants.length >= 150) continue;   // 到上限先不羽化
-        if (S.food >= cost) {          // 食物不足→蛹阶段卡住，等食物
+        if (S.food >= cost) {          // 食物不足→蛹阶段卡住；无数量上限：造几格=几蚁
           S.food -= cost;
           const p = h2p(qs, rs);
           const a = makeAnt(t.type, p.x + (Math.random() - 0.5) * 14, p.y + (Math.random() - 0.5) * 14, squad);
