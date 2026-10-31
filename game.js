@@ -101,6 +101,7 @@
     const maxX = HEX * SQ3 * radius + HEX * SQ3 / 2;
     const maxY = HEX * 1.5 * radius + HEX;
     view.s = Math.min(520 / (2 * maxX), 700 / (2 * maxY));
+    view.baseS = view.s;
     view.cx = 270; view.cy = 470;
   }
   function w2s(x, y) { return { x: view.cx + x * view.s, y: view.cy + y * view.s * TILT }; }
@@ -113,6 +114,9 @@
     r = Math.round(r + (f - r) * p); g = Math.round(g + (f - g) * p); b = Math.round(b + (f - b) * p);
     return 'rgb(' + r + ',' + g + ',' + b + ')';
   }
+  // 缩放（以当前中心为锚点；baseS=1.0×，限幅 0.5×..3×）
+  function zoomBy(f) { if (!view.baseS) view.baseS = view.s; view.s = Math.max(view.baseS * 0.5, Math.min(view.baseS * 3, view.s * f)); }
+  function resetZoom() { view.s = view.baseS || view.s; }
 
   // ---------------- 音效 ----------------
   const Sfx = (function () {
@@ -279,6 +283,7 @@
   let pointerDown = false, downX = 0, downY = 0, downTime = 0, dragging = false;
   let lastMarkerPoint = null;
   let pressTimer = null;
+  const pointers = new Map(); let pinchPrev = 0, gestureMax = 0;
 
   const hud = {
     root: document.getElementById('hud'),
@@ -298,6 +303,7 @@
 
   function showHUD(on) { hud.root.classList.toggle('hidden', !on); }
   function showBottom(on) { bottom.classList.toggle('hidden', !on); }
+  function showZoom(on) { const z = document.getElementById('zoomctl'); if (z) z.classList.toggle('hidden', !on); }
   function hideOverlay() { overlay.classList.add('hidden'); if (screen === 'home' || screen === 'level') showBottom(true); }
   function showOverlay(html) { overlayCard.innerHTML = html; overlay.classList.remove('hidden'); showBottom(false); }
   function setHudExtra(t) { hud.extra.textContent = t || ''; }
@@ -316,7 +322,7 @@
   // =========================================================
   function showMenu() {
     screen = 'menu'; home = null; S = null;
-    showHUD(false); showBottom(false);
+    showHUD(false); showBottom(false); showZoom(false);
     showOverlay(`
       <div class="art">🐜</div>
       <h1>The Ants · 小小蚁国</h1>
@@ -331,6 +337,7 @@
 
   function showSaves() {
     screen = 'saves';
+    showZoom(false);
     let html = '<h2>查看存档</h2><div class="list">';
     if (!homes.length) html += '<div class="sub">还没有蚁丘。先创建一个吧。</div>';
     homes.forEach((h, i) => {
@@ -352,6 +359,7 @@
 
   function showColorPick() {
     screen = 'color'; colorPick = 0;
+    showZoom(false);
     let sw = '';
     COLORS.forEach((c, i) => {
       sw += `<div class="swatch ${i === 0 ? 'active' : ''}" data-i="${i}" style="background:linear-gradient(145deg,${c.head},${c.dark})"><span>${c.name}</span></div>`;
@@ -385,7 +393,7 @@
     home = h; S = null; screen = 'home'; buildMode = null; selectedHomeTile = null;
     home.forPhase = 0;
     hideOverlay(); fitMap(HOME_RADIUS);
-    showHUD(true); showBottom(true);
+    showHUD(true); showBottom(true); showZoom(true);
     refreshHomeHUD(); refreshBottom();
   }
   function refreshHomeHUD() {
@@ -685,6 +693,7 @@
       view.s = S._s0;                            // 地下：2D 平面取景
       view.cy = 470;
     }
+    view.baseS = view.s;
   }
 
   // 跨区移动：不同区先走到本区竖井口，到口后瞬移到对侧口
@@ -722,7 +731,7 @@
     S = createLevel(idx);
     screen = 'level'; buildMode = null; selectedHomeTile = null;
     hideOverlay(); fitMap(LEVEL_RADIUS); applyLayerView();
-    showHUD(true); showBottom(true);
+    showHUD(true); showBottom(true); showZoom(true);
     hud.larva.parentElement.style.display = '';
     refreshLevelHUD(); refreshBottom();
     toast(S.lv.sub + '：' + S.lv.desc, 2400);
@@ -1731,17 +1740,18 @@
     return p2h(w.x, w.y);
   }
 
+  function pinchDist() { const p = [...pointers.values()]; return p.length >= 2 ? Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y) : 0; }
+
   canvas.addEventListener('pointerdown', (e) => {
     Sfx.resume();
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    gestureMax = Math.max(gestureMax, pointers.size);
+    if (pointers.size === 2) { pinchPrev = pinchDist(); pointerDown = false; dragging = false; clearTimeout(pressTimer); return; }  // 双指→捏合
     pointerDown = true; dragging = false;
     const { x, y } = logicalTouch(e);
     downX = x; downY = y; downTime = Date.now();
     lastMarkerPoint = { x, y };
-
-    if (screen === 'home') {
-      // 延迟到 up 处理（区分点击）
-    } else if (screen === 'level') {
-      // 长按删除标记
+    if (screen === 'level') {
       clearTimeout(pressTimer);
       pressTimer = setTimeout(() => {
         if (!pointerDown || dragging || !S) return;
@@ -1759,19 +1769,18 @@
   });
 
   canvas.addEventListener('pointermove', (e) => {
+    if (pointers.has(e.pointerId)) pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pointers.size >= 2) { const d = pinchDist(); if (pinchPrev > 0) zoomBy(d / pinchPrev); pinchPrev = d; return; }   // 捏合缩放
     if (!pointerDown) return;
     const { x, y } = logicalTouch(e);
     if (Math.hypot(x - downX, y - downY) > 14) dragging = true;
     if (screen === 'level' && S && !S.over && S.squads[S.selSquad]) {
-      // 拖拽放置信息素
       const w = s2w(x, y);
       const h = p2h(w.x, w.y);
       const t = S.tiles[hkey(h.q, h.r)];
-      // 拖拽超过阈值才开始画，且避免点在建筑上（分配孵化室）
       if (dragging && !buildMode && !(t && (t.type === 'soldier' || t.type === 'worker'))) {
         const lp = lastMarkerPoint;
         if (!lp || Math.hypot(x - lp.x, y - lp.y) > 16) {
-          // 拖动时只保留最新的一个信息素点（旧点自动消失）
           S.squads[S.selSquad].marker = { q: w.x, r: w.y };
           lastMarkerPoint = { x, y };
         }
@@ -1780,15 +1789,26 @@
   });
 
   canvas.addEventListener('pointerup', (e) => {
+    const wasSingleTap = pointers.size === 1 && gestureMax === 1;   // 本次手势仅单指 → 才触发点选
+    pointers.delete(e.pointerId);
+    if (pointers.size < 2) pinchPrev = 0;
     pointerDown = false;
     clearTimeout(pressTimer);
-    if (dragging) return;
+    if (dragging || !wasSingleTap) { if (pointers.size === 0) gestureMax = 0; return; }
+    gestureMax = 0;
     const { x, y } = logicalTouch(e);
     if (x < 0 || x > LW || y < 0 || y > LH) return;
     if (screen === 'home' && home) handleHomeTap(x, y);
     else if (screen === 'level' && S && !S.over) handleLevelTap(x, y);
   });
-  canvas.addEventListener('pointercancel', () => { pointerDown = false; clearTimeout(pressTimer); });
+  canvas.addEventListener('pointercancel', (e) => { if (e.pointerId) pointers.delete(e.pointerId); pointerDown = false; clearTimeout(pressTimer); if (pointers.size === 0) gestureMax = 0; });
+
+  // 缩放：＋/－/复位 按钮 + 滚轮（捏合已在上方指针事件里处理）
+  const zIn = document.getElementById('z-in'), zOut = document.getElementById('z-out'), zReset = document.getElementById('z-reset');
+  if (zIn) zIn.onclick = () => zoomBy(1.25);
+  if (zOut) zOut.onclick = () => zoomBy(0.8);
+  if (zReset) zReset.onclick = () => resetZoom();
+  canvas.addEventListener('wheel', (e) => { e.preventDefault(); zoomBy(e.deltaY < 0 ? 1.12 : 0.9); }, { passive: false });
 
   function collectSurface() {
     const cap = homeStorage(home);
