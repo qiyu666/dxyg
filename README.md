@@ -140,8 +140,6 @@ ant-kingdom/
 ├─ index.html            # 页面骨架
 ├─ style.css             # 界面样式
 ├─ game.js               # 全部逻辑（六边形、存档、家、关卡、信息素队伍）
-├─ manifest.webmanifest  # PWA
-├─ sw.js                 # 离线缓存
 ├─ assets/               # 图标
 ├─ ant-kingdom.html      # 单文件内联版
 ├─ build-standalone.js   # 生成单文件版
