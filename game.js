@@ -420,7 +420,7 @@
   function homeDigAt(q, r) {
     const t = homeTile(home, q, r);
     if (t && t.type !== 'dirt') return;
-    if (!homeAdjacentDug(home, q, r)) { toast('需要挨着已有通道挖掘'); return; }
+    if (!homeAdjacentDug(home, q, r)) { toast('未打通：得挨着已挖通的外缘挖（地下蚁国式）', 1500); return; }
     if (home.digBlocks <= 0) { toast('挖掘方块已用完（关卡奖励可获得）'); return; }
     home.digBlocks--;
     home.tiles[hkey(q, r)] = { type: 'tunnel', level: 1 };
@@ -890,7 +890,7 @@
     if (t && t.type !== 'dirt') return;
     let adj = false;
     for (const [dq, dr] of DIRS) { const nt = S.tiles[hkey(q + dq, r + dr)]; if (nt && nt.type !== 'dirt') { adj = true; break; } }
-    if (!adj) { toast('需要挨着已有通道挖掘'); return; }
+    if (!adj) { toast('未打通：得挨着已挖通的外缘挖（地下蚁国式）', 1500); return; }
     S.tiles[key] = { type: 'tunnel', level: 1 };
     revealTile(key);
     Sfx.dig();
@@ -915,7 +915,7 @@
     if (t && t.type !== 'dirt' && t.type !== 'tunnel') { toast('这里已有建筑'); return; }
     let adj = false;
     for (const [dq, dr] of DIRS) { const nt = S.tiles[hkey(q + dq, r + dr)]; if (nt && nt.type !== 'dirt') { adj = true; break; } }
-    if (!adj) { toast('需挨着已有区域'); return; }
+    if (!adj) { toast('未打通：这块土不挨着已挖通的外缘，先挖通旁边（地下蚁国式）', 1500); return; }
     if (!S.tiles[key] || S.tiles[key].type !== 'dirt') S.tiles[key] = { type: 'dirt' };
     S.tiles[key].dig = S.tiles[key].dig || { progress: 0, need: 2 };
     const p = h2p(q, r);
@@ -1545,7 +1545,7 @@
       ctx.fillText('拆除：点一个建筑（返还 70% 食物到地表）', LW / 2, LH - 18);
     } else if (buildMode === 'dig') {
       ctx.fillStyle = 'rgba(232,214,170,.9)'; ctx.font = '11px system-ui';
-      ctx.fillText('挖掘：点需挖掘的空地，工蚁会过去挖开地道', LW / 2, LH - 18);
+      ctx.fillText('挖掘：点任意土格，工蚁过去挖；只有挨着已挖通外缘的挖得动（未打通的挖不了）', LW / 2, LH - 18);
     } else if (S.pheromone) {
       ctx.fillStyle = 'rgba(190,230,150,.9)'; ctx.font = '11px system-ui';
       ctx.fillText('信息素：点地图为该队（' + 'ⅠⅡⅢⅣⅤ'[S.selSquad] + '）放信息素点', LW / 2, LH - 18);
@@ -1590,7 +1590,25 @@
         }
       }
     }
-    // 可挖前线不再画提示；埋藏的 ！/食 也不再显示（挖到才见）
+    // 挖地道模式：在“可挖前线”（挨着已挖空的土格）画醒目提示，未打通的不提示
+    if (!isHome && buildMode === 'dig') {
+      for (let q = -radius; q <= radius; q++) {
+        for (let r = Math.max(-radius, -q - radius); r <= Math.min(radius, -q + radius); r++) {
+          const t2 = tiles[hkey(q, r)]; if (t2 && t2.type !== 'dirt') continue;   // 已挖/建筑跳过；土壤（不在tiles或dirt）才提示
+          let fr = false;
+          for (const [dq, dr] of DIRS) { const nt = tiles[hkey(q + dq, r + dr)]; if (nt && nt.type !== 'dirt') { fr = true; break; } }
+          if (!fr) continue;
+          const p2 = h2p(q, r);
+          const glow = ctx.createRadialGradient(p2.x, p2.y, 1, p2.x, p2.y, HEX * 0.72);
+          glow.addColorStop(0, 'rgba(255,190,90,.30)'); glow.addColorStop(1, 'rgba(255,190,90,0)');
+          ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(p2.x, p2.y, HEX * 0.72, 0, 7); ctx.fill();
+          ctx.strokeStyle = 'rgba(255,208,120,.9)'; ctx.lineWidth = 2; ctx.setLineDash([4, 3]);
+          ctx.beginPath(); ctx.arc(p2.x, p2.y, HEX * 0.62, 0, 7); ctx.stroke(); ctx.setLineDash([]);
+          ctx.fillStyle = 'rgba(255,224,160,.95)'; ctx.font = (HEX * 0.5) + 'px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.fillText('⛏', p2.x, p2.y); ctx.textBaseline = 'alphabetic';
+        }
+      }
+    }
   }
 
   function drawHatchStage(x, y, t, hex) {
