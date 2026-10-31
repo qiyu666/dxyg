@@ -303,6 +303,26 @@ body{
   }
   function inRadius(q, r, rad) { return hdist(q, r, 0, 0) <= rad; }
 
+  // 地下蚁国式：不规则有机土壤区（边缘凹凸，不是正六边形；巢心始终可挖）
+  function makeSoilFn(maxR, seed) {
+    const s = (seed || 1) * 7 + 3;
+    const p = [s % 6.283, (s * 2.71) % 6.283, (s * 4.13) % 6.283];
+    return (q, r) => {
+      const d = hdist(q, r, 0, 0);
+      if (d <= 2) return true;
+      if (d > maxR) return false;
+      const wp = h2p(q, r);
+      const ang = Math.atan2(wp.y, wp.x);
+      const wob = Math.sin(ang * 3 + p[0]) * 0.5 + Math.sin(ang * 2 + p[1]) * 0.35 + Math.sin(ang * 5 + p[2]) * 0.25;
+      const edge = maxR * (0.6 + 0.33 * wob);
+      return d <= edge;
+    };
+  }
+  function randSoilCell(soilFn, a, b) {
+    for (let i = 0; i < 200; i++) { const c = randRing(a, b); if (!soilFn || soilFn(c[0], c[1])) return c; }
+    return DIRS[Math.floor(Math.random() * 6)].map(v => v * 2);   // 兵心外环（hdist=2 保证是土）
+  }
+
   // ---------------- 画布 / 输入 ----------------
   const canvas = document.getElementById('cv');
   const ctx = canvas.getContext('2d');
@@ -401,7 +421,7 @@ body{
     const foodN = lv.buriedFood || 0;
     const foodAmt = lv.foodAmount || 30;
     const used = new Set();
-    const put = (obj) => { for (let t = 0; t < 60; t++) { const [q, r] = randRing(2, st.radius); const k = hkey(q, r); if (used.has(k)) continue; used.add(k); st.buried[k] = obj; return; } };
+    const put = (obj) => { for (let t = 0; t < 60; t++) { const [q, r] = randSoilCell(st.soil, 2, st.radius); const k = hkey(q, r); if (used.has(k)) continue; used.add(k); st.buried[k] = obj; return; } };
     for (const k of kinds) put({ enemy: k });
     for (let i = 0; i < foodN; i++) put({ food: foodAmt });
   }
@@ -449,6 +469,7 @@ body{
       cleared: LEVELS.map(() => false),
       tiles: {},
     };
+    h.soil = makeSoilFn(HOME_RADIUS, (colorIdx || 0) + 1);
     makeQueenTiles(h.tiles);
     homes.push(h); persist();
     return h;
@@ -620,6 +641,7 @@ body{
   function enterHome(h) {
     if (!h || !h.tiles) h = newHome(0); // 存档损坏/home 为 null 时自动新建，不崩
     home = h; S = null; screen = 'home'; buildMode = null; selectedHomeTile = null;
+    h.soil = h.soil || makeSoilFn(HOME_RADIUS, (h.color || 0) + 1);
     home.forPhase = 0;
     hideOverlay(); fitMap(HOME_RADIUS);
     showHUD(true); showBottom(true); showZoom(true);
@@ -648,6 +670,7 @@ body{
   function homeDigAt(q, r) {
     const t = homeTile(home, q, r);
     if (t && t.type !== 'dirt') return;
+    if (home.soil && !home.soil(q, r)) { toast('这里是岩石，没有土可挖', 1300); return; }
     if (!homeAdjacentDug(home, q, r)) { toast('未打通：得挨着已挖通的外缘挖（地下蚁国式）', 1500); return; }
     if (home.digBlocks <= 0) { toast('挖掘方块已用完（关卡奖励可获得）'); return; }
     home.digBlocks--;
@@ -792,6 +815,7 @@ body{
       raidTimer: 120, raidCount: 0, raidStolen: false, pointsSpent: 0, foodTimer: (lv.foodRate || 12),
       uiTab: 'build', viewLayer: 'under', pheromone: false,
     };
+    st.soil = makeSoilFn(st.radius, idx + 1);   // 本关不规则土壤区
     makeQueenTiles(st.tiles);
     for (let i = 0; i < 5; i++) st.squads.push({ assigned: new Set(), marker: null, allowAttack: true, allowCarry: true });
     // 初始 7 只工蚁，默认分配到队伍 I
@@ -855,12 +879,12 @@ body{
     // 蜘蛛/蛛丝蜘蛛不再开局就在外面；埋进土里（plantBuried），玩家挖到才钻出
     // 蛛丝洞穴 = 地表食物巢（大量食物，供扩建），不自动钻出蛛丝蜘蛛
     for (let i = 0; i < 3; i++) {
-      const [q, r] = randRing(4, 7); const p = h2p(q, r);
+      const [q, r] = randSoilCell(st.soil, 4, 7); const p = h2p(q, r);
       st.webs.push({ x: p.x, y: p.y, q, r, triggered: true });
       for (let j = 0; j < 8; j++) st.foods.push({ x: p.x + (Math.random() - 0.5) * 55, y: p.y + (Math.random() - 0.5) * 55, amount: 40 });
     }
     // 地面约 500 食物（便于扩建）
-    for (let i = 0; i < 25; i++) { const [q, r] = randRing(2, 7); const p = h2p(q, r); st.foods.push({ x: p.x + (Math.random() - 0.5) * 30, y: p.y + (Math.random() - 0.5) * 30, amount: 20 }); }
+    for (let i = 0; i < 25; i++) { const [q, r] = randSoilCell(st.soil, 2, 7); const p = h2p(q, r); st.foods.push({ x: p.x + (Math.random() - 0.5) * 30, y: p.y + (Math.random() - 0.5) * 30, amount: 20 }); }
   }
   function randRing(a, b) {
     for (let i = 0; i < 40; i++) {
@@ -1116,6 +1140,7 @@ body{
     const key = hkey(q, r);
     const t = S.tiles[key];
     if (t && t.type !== 'dirt') return;
+    if (S.soil && !S.soil(q, r)) { toast('这里是岩石，没有土可挖', 1300); return; }
     let adj = false;
     for (const [dq, dr] of DIRS) { const nt = S.tiles[hkey(q + dq, r + dr)]; if (nt && nt.type !== 'dirt') { adj = true; break; } }
     if (!adj) { toast('未打通：得挨着已挖通的外缘挖（地下蚁国式）', 1500); return; }
@@ -1141,6 +1166,7 @@ body{
     const key = hkey(q, r), t = S.tiles[key];
     if (t && t.type === 'queen') { toast('蚁后室不能挖'); return; }
     if (t && t.type !== 'dirt' && t.type !== 'tunnel') { toast('这里已有建筑'); return; }
+    if (S.soil && !S.soil(q, r)) { toast('这里是岩石，没有土可挖', 1300); return; }
     let adj = false;
     for (const [dq, dr] of DIRS) { const nt = S.tiles[hkey(q + dq, r + dr)]; if (nt && nt.type !== 'dirt') { adj = true; break; } }
     if (!adj) { toast('未打通：这块土不挨着已挖通的外缘，先挖通旁边（地下蚁国式）', 1500); return; }
@@ -1633,7 +1659,7 @@ body{
     // 巢
     ctx.save();
     ctx.translate(view.cx + view.ox, view.cy + view.oy); ctx.scale(view.s, view.s * TILT);
-    drawHexGrid(home.tiles, HOME_RADIUS, true);
+    drawHexGrid(home.tiles, HOME_RADIUS, true, home.soil);
     ctx.restore();
     // 资源行
     ctx.fillStyle = 'rgba(200,170,120,.75)'; ctx.font = '11px system-ui'; ctx.textAlign = 'center';
@@ -1683,7 +1709,7 @@ body{
     const vz = S.viewLayer;                              // 'under' | 'surface'
     const inVz = (x, y) => (vz === 'surface' ? zoneOf(x, y) === 'surface' : zoneOf(x, y) === 'under');
     if (vz === 'under') {
-      drawHexGrid(S.tiles, LEVEL_RADIUS, false);
+      drawHexGrid(S.tiles, LEVEL_RADIUS, false, S.soil);
       // 挖掘进度（工蚁正在挖的地道）
       for (const key in S.tiles) { const td = S.tiles[key]; if (!td.dig) continue; const dd = key.split(','), pp = h2p(+dd[0], +dd[1]), fr = td.dig.progress / td.dig.need;
         ctx.strokeStyle = 'rgba(0,0,0,.5)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(pp.x, pp.y, 10, 0, 7); ctx.stroke();
@@ -1780,25 +1806,23 @@ body{
     }
   }
 
-  function hexPath(cx, cy, s) {
-    ctx.beginPath();
-    for (let i = 0; i < 6; i++) { const a = Math.PI / 3 * i - Math.PI / 2; const x = cx + s * Math.cos(a), y = cy + s * Math.sin(a); if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); }
-    ctx.closePath();
-  }
-  function drawHexGrid(tiles, radius, isHome) {
+  function drawHexGrid(tiles, radius, isHome, soilFn) {
     const s = HEX * 0.98;
     const soilFill = (q, r) => { const v = ((q * 53 + r * 97) % 7 + 7) % 7; return 'rgb(' + (92 + v * 4) + ',' + (66 + v * 3) + ',' + (40 + v * 2) + ')'; };
     const roomFill = (t) => { if (t.type === 'queen') return '#2c2414'; if (t.type === 'tunnel') return '#0f0a05'; if (t.type === 'worker') return '#28321c'; if (t.type === 'soldier') return '#301a13'; if (t.type === 'storage') return '#2e2818'; if (t.type === 'speed') return '#263430'; return '#1a120a'; };
-    // 逐格画正六边形（土格=棕 / 已挖·建筑=深色）
+    // 逐格画正六边形：只画“土壤区(blob)内”的土格 + 已挖格（blob 外=岩石/虚空，露出洞穴背景）
     for (let q = -radius; q <= radius; q++) {
       for (let r = Math.max(-radius, -q - radius); r <= Math.min(radius, -q + radius); r++) {
         const key = hkey(q, r);
         const t = tiles[key];
+        const dug = t && t.type !== 'dirt';
+        if (!dug && !(soilFn && soilFn(q, r))) continue;
         const p = h2p(q, r);
         hexPath(p.x, p.y, s);
-        ctx.fillStyle = (!t || t.type === 'dirt') ? soilFill(q, r) : roomFill(t);
+        ctx.fillStyle = dug ? roomFill(t) : soilFill(q, r);
         ctx.fill();
-        if (t && t.type !== 'dirt') {
+        ctx.strokeStyle = 'rgba(0,0,0,.3)'; ctx.lineWidth = 1; ctx.stroke();
+        if (dug) {
           if (t.type === 'queen') { drawQueen(p.x, p.y, HEX); }
           else if ((t.type === 'worker' || t.type === 'soldier') && t.hatch && t.hatch.stage !== 'active') { drawHatchStage(p.x, p.y, t, HEX); }
           else if (t.type !== 'tunnel') {
@@ -1809,16 +1833,13 @@ body{
         }
       }
     }
-    // 正六边形格缝（深色细线）
-    ctx.strokeStyle = 'rgba(0,0,0,.3)'; ctx.lineWidth = 1;
-    for (let q = -radius; q <= radius; q++) {
-      for (let r = Math.max(-radius, -q - radius); r <= Math.min(radius, -q + radius); r++) { const p = h2p(q, r); hexPath(p.x, p.y, s); ctx.stroke(); }
-    }
-    // 挖地道模式：在“可挖前线”（挨着已挖空的土格）画醒目提示，未打通的不提示
-    if (!isHome && buildMode === 'dig') {
+    // 挖地道模式：可挖前线 ⛏（土壤区内、挨着已挖空的土格）
+    if (!isHome && buildMode === 'dig' && soilFn) {
       for (let q = -radius; q <= radius; q++) {
         for (let r = Math.max(-radius, -q - radius); r <= Math.min(radius, -q + radius); r++) {
-          const t2 = tiles[hkey(q, r)]; if (t2 && t2.type !== 'dirt') continue;   // 已挖/建筑跳过；土壤（不在tiles或dirt）才提示
+          const t2 = tiles[hkey(q, r)];
+          if (t2 && t2.type !== 'dirt') continue;
+          if (!soilFn(q, r)) continue;
           let fr = false;
           for (const [dq, dr] of DIRS) { const nt = tiles[hkey(q + dq, r + dr)]; if (nt && nt.type !== 'dirt') { fr = true; break; } }
           if (!fr) continue;
