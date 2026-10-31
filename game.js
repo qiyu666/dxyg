@@ -775,7 +775,7 @@
     hud.worker.textContent = P.w; hud.wcap.textContent = P.wMax ? ('/' + P.wMax) : '';
     hud.soldier.textContent = P.s; hud.scap.textContent = P.sMax ? ('/' + P.sMax) : '';
     hud.wwrap.style.display = ''; hud.swrap.style.display = '';
-    hud.bwrap.style.display = 'none'; hud.jwrap.style.display = 'none'; hud.lwrap.style.display = '';
+    hud.bwrap.style.display = 'none'; hud.jwrap.style.display = 'none'; hud.lwrap.style.display = 'none';
     hud.larva.textContent = S.larva;
     setHudExtra('活跃 ' + P.active + '/' + P.max + (P.max ? '' : '·无孵化方格') + ' · 威胁 ' + threatsLeft() + ' · 队' + 'ⅠⅡⅢⅣⅤ'[S.selSquad] + ' ' + S.ants.filter(a => a.squad === S.selSquad).length + '只');
   }

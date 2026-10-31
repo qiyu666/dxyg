@@ -200,6 +200,7 @@ body{
 <body>
 <div id="app">
   <header id="hud" class="hidden">
+    <button id="btn-back" aria-label="返回">←</button>
     <div class="stat"><span class="ico">🌿</span><b id="hud-food">0</b><i id="hud-cap"></i></div>
     <div class="stat" id="hud-w"><span class="ico">🐜</span><b id="hud-worker">0</b><i id="hud-wcap"></i></div>
     <div class="stat" id="hud-s"><span class="ico">⚔️</span><b id="hud-soldier">0</b><i id="hud-scap"></i></div>
@@ -207,7 +208,6 @@ body{
     <div class="stat" id="hud-j"><span class="ico">🧪</span><b id="hud-jelly">0</b></div>
     <div class="stat" id="hud-l"><span class="ico">🥚</span><b id="hud-larva">0</b></div>
     <div class="stat" id="hud-extra"></div>
-    <button id="btn-back" aria-label="返回">←</button>
   </header>
 
   <main id="stage">
@@ -1003,7 +1003,7 @@ body{
     hud.worker.textContent = P.w; hud.wcap.textContent = P.wMax ? ('/' + P.wMax) : '';
     hud.soldier.textContent = P.s; hud.scap.textContent = P.sMax ? ('/' + P.sMax) : '';
     hud.wwrap.style.display = ''; hud.swrap.style.display = '';
-    hud.bwrap.style.display = 'none'; hud.jwrap.style.display = 'none'; hud.lwrap.style.display = '';
+    hud.bwrap.style.display = 'none'; hud.jwrap.style.display = 'none'; hud.lwrap.style.display = 'none';
     hud.larva.textContent = S.larva;
     setHudExtra('活跃 ' + P.active + '/' + P.max + (P.max ? '' : '·无孵化方格') + ' · 威胁 ' + threatsLeft() + ' · 队' + 'ⅠⅡⅢⅣⅤ'[S.selSquad] + ' ' + S.ants.filter(a => a.squad === S.selSquad).length + '只');
   }
