@@ -35,11 +35,11 @@
   function upgradeReq(nextLevel) { return nextLevel === 2 ? 6 : 12; }
 
   const LEVELS = [
-    // 第一章 · 地下（无地表层）
-    { chapter: '第一章 · 地下', name: '第一关', sub: '地下清剿', desc: '挖开泥土、击败钻出的全部敌人。', kind: 'clear', surface: false,
-      buriedKinds: ['mealworm','mealworm','mealworm','sowbug','sowbug','beetle','beetle','adultBeetle'], buriedFood: 6, foodAmount: 30, foodRate: 12, foodMax: 20 },
-    { chapter: '第一章 · 地下', name: '第二关', sub: '扩建蚁巢', desc: '建成 50 兵蚁 + 47 工蚁孵化室。', kind: 'expand', surface: false, raid: true,
-      buriedKinds: ['spider','spider','spider','webSpider','webSpider','enemyAnt','enemyAnt'], buriedFood: 22, foodAmount: 40, needS: 50, needW: 47, foodRate: 6, foodMax: 45 },
+    // 第一章 · 地下（照 地下蚁国 1.1/1.2：资源点 + 威胁分散；面包虫/鼠妇不攻击）
+    { chapter: '第一章 · 地下', name: '第一关', sub: '初次开掘', desc: '采集 40 食物：挖土找食物堆/面包虫/鼠妇（它们不攻击）。', kind: 'forage', forageGoal: 40, surface: false,
+      buriedKinds: ['mealworm', 'mealworm', 'mealworm', 'sowbug', 'sowbug'], buriedFood: 8, foodAmount: 30, foodRate: 12, foodMax: 24 },
+    { chapter: '第一章 · 地下', name: '第二关', sub: '威胁初现', desc: '清掉土里分散的威胁昆虫（面包虫/鼠妇无害）。', kind: 'clear', surface: false,
+      buriedKinds: ['mealworm', 'sowbug', 'spider', 'beetle', 'beetle', 'spider'], buriedFood: 8, foodAmount: 30, foodRate: 12, foodMax: 24 },
     // 第二章 · 冲出地表（引入地表层）
     { chapter: '第二章 · 冲出地表', name: '第一关', sub: '登上地表', desc: '打通竖井爬上地表，采集 30 食物。', kind: 'surface', surface: true, forageGoal: 30, surfBugs: ['beetle', 'spider'],
       buriedKinds: [], buriedFood: 4, foodAmount: 30, foodRate: 12, foodMax: 20 },
@@ -741,11 +741,13 @@
     setTimeout(() => { if (screen === 'level') toast('选中队伍 → 点孵化室分配 → 点/拖动地图放信息素点（只保留最新）', 3200); }, 3600);
   }
 
-  function threatsLeft() { let n = S.enemies.length; for (const k in S.buried) if (S.buried[k] && S.buried[k].enemy) n++; return n; }
+  function isThreat(k) { return k && k !== 'mealworm' && k !== 'sowbug'; }
+  function threatsLeft() { let n = 0; for (const e of S.enemies) if (isThreat(e.kind)) n++; for (const k in S.buried) if (S.buried[k] && isThreat(S.buried[k].enemy)) n++; return n; }
   function surfaceBugsLeft() { return S.enemies.filter(e => e.zone === 'surface').length; }
   function levelObjectiveText() {
     const lv = S.lv;
-    if (lv.kind === 'clear') return '威胁 ' + threatsLeft() + '（挖开泥土会钻出）';
+    if (lv.kind === 'forage') return '储备食物 ' + Math.floor(S.harvested || 0) + '/' + lv.forageGoal + '（挖土找食物/面包虫/鼠妇，它们不攻击）';
+    if (lv.kind === 'clear') return '威胁 ' + threatsLeft() + '（挖土钻出，面包虫/鼠妇不在此计）';
     if (lv.kind === 'expand') return '兵蚁孵化室 ' + S.builtSoldier + '/' + lv.needS + ' · 工蚁 ' + S.builtWorker + '/' + lv.needW;
     if (lv.kind === 'surface') return '采集食物 ' + Math.floor(S.harvested || 0) + '/' + lv.forageGoal + (lv.clearBugs ? ' · 地表昆虫 ' + surfaceBugsLeft() : '');
     return '';
@@ -754,6 +756,7 @@
     if (!S || S.over) return;
     const lv = S.lv;
     if (lv.kind === 'expand' && S.builtSoldier >= lv.needS && S.builtWorker >= lv.needW) winLevel();
+    else if (lv.kind === 'forage' && (S.harvested || 0) >= (lv.forageGoal || 0)) winLevel();
     else if (lv.kind === 'surface') checkSurfaceWin();
   }
 
@@ -1137,7 +1140,7 @@
         if (best) {
           const take = best.surface ? Math.min(best.amount, 40) : Math.min(best.amount, a.carryCap);
           a.carry = take; best.amount -= take;
-          if (best.surface) S.harvested = (S.harvested || 0) + take;   // 采集即计入地表目标（不受巢穴存满限制）
+          S.harvested = (S.harvested || 0) + take;   // 采集食物计入储备（forage/地表目标）
           if (best.amount <= 0) S.foods.splice(S.foods.indexOf(best), 1);
           continue;
         }
@@ -1203,6 +1206,8 @@
     for (const e of S.enemies) {
       if (e.hp <= 0) { if (!e.dead) { e.dead = true; killEnemy(e); } continue; }
       e.phase += dt * 10;
+      // 面包虫/鼠妇：被动食物，不攻击，只慢速游走（可被蚁咬掉→掉落食物）
+      if (e.kind === 'mealworm' || e.kind === 'sowbug') { e.x += Math.cos(e.phase) * 7 * dt; e.y += Math.sin(e.phase * 0.7) * 7 * dt; continue; }
       const ez = e.zone || 'under';
       // 目标：本区最近蚂蚁；无目标时——地表昆虫在清地游走（够不着蚁后），地下敌人冲向蚁后
       let target = null, td = 9999;
@@ -1271,16 +1276,16 @@
   // 对敌人造成伤害时处理死亡奖励
   function killEnemy(e) {
     if (e.kind === 'mealworm') {
-      S.food = Math.min(levelFoodCap(S), S.food + 50);
+      S.food = Math.min(levelFoodCap(S), S.food + 50); S.harvested = (S.harvested || 0) + 50;
       toast('面包虫 +50 食物', 900);
     } else if (e.kind === 'sowbug') {
-      S.corpses.push({ x: e.x, y: e.y, left: 2, timer: 0 });
+      S.corpses.push({ x: e.x, y: e.y, left: 2, timer: 0 }); S.harvested = (S.harvested || 0) + 80;
       toast('鼠妇留下尸体，可分解 2 次（每次 40）', 1400);
     } else if (e.kind === 'spider') {
-      S.food = Math.min(levelFoodCap(S), S.food + 30);
+      S.food = Math.min(levelFoodCap(S), S.food + 30); S.harvested = (S.harvested || 0) + 30;
       toast('蜘蛛掉落食物 +30', 900);
     } else if (e.kind === 'webSpider') {
-      S.food = Math.min(levelFoodCap(S), S.food + 50);
+      S.food = Math.min(levelFoodCap(S), S.food + 50); S.harvested = (S.harvested || 0) + 50;
       toast('蛛丝蜘蛛掉落食物 +50', 900);
     }
   }
