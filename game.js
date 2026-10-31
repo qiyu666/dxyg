@@ -82,14 +82,16 @@
   let dpr = Math.min(window.devicePixelRatio || 1, 2.5);
   function resize() {
     const stage = document.getElementById('stage');
-    const cssW = stage.clientWidth, cssH = stage.clientHeight;
+    let cssW = stage.clientWidth, cssH = stage.clientHeight;
+    if (!cssW || !cssH) { cssW = window.innerWidth || 360; cssH = Math.max(window.innerHeight - 60, 300); } // 阶段高度塔了（iOS）时兑底
     dpr = Math.min(window.devicePixelRatio || 1, 2.5);
-    canvas.width = Math.round(cssW * dpr); canvas.height = Math.round(cssH * dpr);
+    canvas.width = Math.max(2, Math.round(cssW * dpr)); canvas.height = Math.max(2, Math.round(cssH * dpr));
     canvas.style.width = cssW + 'px'; canvas.style.height = cssH + 'px';
     const scale = Math.min(cssW / LW, cssH / LH);
     fit = { scale, offX: (cssW - LW * scale) / 2, offY: (cssH - LH * scale) / 2 };
   }
   window.addEventListener('resize', resize);
+  window.addEventListener('orientationchange', function () { setTimeout(resize, 200); });
   function toLogical(cx, cy) {
     const r = canvas.getBoundingClientRect();
     return { x: (cx - r.left - fit.offX) / fit.scale, y: (cy - r.top - fit.offY) / fit.scale };
@@ -388,6 +390,7 @@
   //  家（六边形主基地）
   // =========================================================
   function enterHome(h) {
+    if (!h || !h.tiles) h = newHome(0); // 存档损坏/home 为 null 时自动新建，不崩
     home = h; S = null; screen = 'home'; buildMode = null; selectedHomeTile = null;
     home.forPhase = 0;
     hideOverlay(); fitMap(HOME_RADIUS);
@@ -726,6 +729,7 @@
   }
 
   function startLevel(idx) {
+    if (!home) home = newHome(0); // 无蚁丘时兑底
     Sfx.resume();
     S = createLevel(idx);
     screen = 'level'; buildMode = null; selectedHomeTile = null;
@@ -1923,14 +1927,24 @@
       if (!last) last = ts;
       let dt = (ts - last) / 1000; last = ts;
       dt = Math.min(dt, 0.05);
+      if (!canvas.width || !canvas.height) resize(); // 画布 0 尺寸自愈（iOS 布局塔）
       if (screen === 'level' && S && !S.over) levelUpdate(dt);
       if (screen === 'home' && home) homeUpdate(dt);
       render();
     } catch (err) {
-      if (!window.__antErr) { window.__antErr = String(err && err.stack || err); }
+      surfaceError(String(err && err.message || err));
     }
     requestAnimationFrame(loop);
   }
+  // 出错时把信息直接显示在屏上（方便定位手机上的黑屏）
+  function surfaceError(msg) {
+    if (window.__antErr) return; // 只弹一次
+    window.__antErr = msg;
+    let b = document.getElementById('__anterr__');
+    if (!b) { b = document.createElement('div'); b.id = '__anterr__'; b.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:999;background:rgba(120,20,20,.95);color:#fff;font:11px/1.4 system-ui;padding:6px 10px;white-space:pre-wrap'; document.body.appendChild(b); }
+    b.textContent = '渲染异常：' + msg;
+  }
+  window.addEventListener('error', function (e) { surfaceError(String(e && e.message || e)); });
 
   function boot() {
     resize();
