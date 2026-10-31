@@ -328,17 +328,18 @@ body{
     return { x: (cx - r.left - fit.offX) / fit.scale, y: (cy - r.top - fit.offY) / fit.scale };
   }
 
-  const view = { s: 1, cx: 270, cy: 470 };
+  const view = { s: 1, cx: 270, cy: 470, ox: 0, oy: 0 };
   const TILT = 1;   // 平面 2D（俯视偏角关闭；若想恢复 2.5D 压迫感改回 0.7）
   function fitMap(radius) {
     const maxX = HEX * SQ3 * radius + HEX * SQ3 / 2;
     const maxY = HEX * 1.5 * radius + HEX;
     view.s = Math.min(520 / (2 * maxX), 700 / (2 * maxY));
     view.baseS = view.s;
+    view.ox = 0; view.oy = 0; view.maxPan = Math.round(view.baseS * (radius * HEX * SQ3));
     view.cx = 270; view.cy = 470;
   }
-  function w2s(x, y) { return { x: view.cx + x * view.s, y: view.cy + y * view.s * TILT }; }
-  function s2w(x, y) { return { x: (x - view.cx) / view.s, y: (y - view.cy) / (view.s * TILT) }; }
+  function w2s(x, y) { return { x: view.cx + view.ox + x * view.s, y: view.cy + view.oy + y * view.s * TILT }; }
+  function s2w(x, y) { return { x: (x - view.cx - view.ox) / view.s, y: (y - view.cy - view.oy) / (view.s * TILT) }; }
   // 颜色明暗（amt -1..1，负数变暗）
   function shade(hex, amt) {
     const c = hex.replace('#', ''); const n = parseInt(c, 16);
@@ -349,7 +350,7 @@ body{
   }
   // 缩放（以当前中心为锚点；baseS=1.0×，限幅 0.5×..3×）
   function zoomBy(f) { if (!view.baseS) view.baseS = view.s; view.s = Math.max(view.baseS * 0.5, Math.min(view.baseS * 3, view.s * f)); }
-  function resetZoom() { view.s = view.baseS || view.s; }
+  function resetZoom() { view.s = view.baseS || view.s; view.ox = 0; view.oy = 0; }
 
   // ---------------- 音效 ----------------
   const Sfx = (function () {
@@ -516,7 +517,7 @@ body{
   let pointerDown = false, downX = 0, downY = 0, downTime = 0, dragging = false;
   let lastMarkerPoint = null;
   let pressTimer = null;
-  const pointers = new Map(); let pinchPrev = 0, gestureMax = 0;
+  const pointers = new Map(); let pinchPrev = 0, gestureMax = 0, pinchPrevC = null, panStart = null, hintedPan = false;
 
   const hud = {
     root: document.getElementById('hud'),
@@ -926,7 +927,8 @@ body{
       view.s = S._s0;                            // 地下：2D 平面取景
       view.cy = 470;
     }
-    view.baseS = view.s;
+    view.baseS = view.s; view.ox = 0; view.oy = 0;
+    view.maxPan = Math.round(view.baseS * (S.radius * HEX * SQ3));
   }
 
   // 跨区移动：不同区先走到本区竖井口，到口后瞬移到对侧口
@@ -1629,7 +1631,7 @@ body{
     if (!piles) { ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(200,190,160,.4)'; ctx.fillText('地表暂无食物（通关/拆除会落到这里）', LW / 2, bTop + bH * 0.5 + 3); }
     // 巢
     ctx.save();
-    ctx.translate(view.cx, view.cy); ctx.scale(view.s, view.s * TILT);
+    ctx.translate(view.cx + view.ox, view.cy + view.oy); ctx.scale(view.s, view.s * TILT);
     drawHexGrid(home.tiles, HOME_RADIUS, true);
     ctx.restore();
     // 资源行
@@ -1676,7 +1678,7 @@ body{
   function renderLevel() {
     renderIdleBg();
     ctx.save();
-    ctx.translate(view.cx, view.cy); ctx.scale(view.s, view.s * TILT);
+    ctx.translate(view.cx + view.ox, view.cy + view.oy); ctx.scale(view.s, view.s * TILT);
     const vz = S.viewLayer;                              // 'under' | 'surface'
     const inVz = (x, y) => (vz === 'surface' ? zoneOf(x, y) === 'surface' : zoneOf(x, y) === 'under');
     if (vz === 'under') {
@@ -1974,13 +1976,15 @@ body{
   }
 
   function pinchDist() { const p = [...pointers.values()]; return p.length >= 2 ? Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y) : 0; }
+  function pinchCentroid() { const p = [...pointers.values()]; if (p.length < 2) return null; let x = 0, y = 0; for (const q of p) { x += q.x; y += q.y; } return { x: x / p.length, y: y / p.length }; }
+  function clampPan() { const m = view.maxPan || 400; view.ox = Math.max(-m, Math.min(m, view.ox)); view.oy = Math.max(-m, Math.min(m, view.oy)); }
 
   canvas.addEventListener('pointerdown', (e) => {
     Sfx.resume();
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     gestureMax = Math.max(gestureMax, pointers.size);
-    if (pointers.size === 2) { pinchPrev = pinchDist(); pointerDown = false; dragging = false; clearTimeout(pressTimer); return; }  // 双指→捏合
-    pointerDown = true; dragging = false;
+    if (pointers.size === 2) { pinchPrev = pinchDist(); pinchPrevC = pinchCentroid(); pointerDown = false; dragging = false; panStart = null; clearTimeout(pressTimer); return; }  // 双指→捏合/平移
+    pointerDown = true; dragging = false; panStart = null;
     const { x, y } = logicalTouch(e);
     downX = x; downY = y; downTime = Date.now();
     lastMarkerPoint = { x, y };
@@ -2003,9 +2007,22 @@ body{
 
   canvas.addEventListener('pointermove', (e) => {
     if (pointers.has(e.pointerId)) pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (pointers.size >= 2) { const d = pinchDist(); if (pinchPrev > 0) zoomBy(d / pinchPrev); pinchPrev = d; return; }   // 捏合缩放
+    if (pointers.size >= 2) {   // 双指：捏合缩放 + 平移
+      const d = pinchDist(), c = pinchCentroid();
+      if (pinchPrev > 0 && pinchPrevC) { zoomBy(d / pinchPrev); view.ox += (c.x - pinchPrevC.x) / (fit.scale || 1); view.oy += (c.y - pinchPrevC.y) / (fit.scale || 1); clampPan(); }
+      pinchPrev = d; pinchPrevC = c;
+      return;
+    }
     if (!pointerDown) return;
     const { x, y } = logicalTouch(e);
+    // 已放大：单指/鼠标拖动 = 平移视角；未放大：保留原“拖放信息素”
+    if (view.s > (view.baseS || view.s) + 0.001) {
+      if (Math.hypot(x - downX, y - downY) > 10) {
+        if (!panStart) { panStart = { ox: view.ox, oy: view.oy, x: downX, y: downY }; dragging = true; }
+        view.ox = panStart.ox + (x - panStart.x); view.oy = panStart.oy + (y - panStart.y); clampPan();
+      }
+      return;
+    }
     if (Math.hypot(x - downX, y - downY) > 14) dragging = true;
     if (screen === 'level' && S && !S.over && S.squads[S.selSquad]) {
       const w = s2w(x, y);
@@ -2024,7 +2041,8 @@ body{
   canvas.addEventListener('pointerup', (e) => {
     const wasSingleTap = pointers.size === 1 && gestureMax === 1;   // 本次手势仅单指 → 才触发点选
     pointers.delete(e.pointerId);
-    if (pointers.size < 2) pinchPrev = 0;
+    if (pointers.size < 2) { pinchPrev = 0; pinchPrevC = null; }
+    panStart = null;
     pointerDown = false;
     clearTimeout(pressTimer);
     if (dragging || !wasSingleTap) { if (pointers.size === 0) gestureMax = 0; return; }
@@ -2038,7 +2056,7 @@ body{
 
   // 缩放：＋/－/复位 按钮 + 滚轮（捏合已在上方指针事件里处理）
   const zIn = document.getElementById('z-in'), zOut = document.getElementById('z-out'), zReset = document.getElementById('z-reset');
-  if (zIn) zIn.onclick = () => zoomBy(1.25);
+  if (zIn) zIn.onclick = () => { zoomBy(1.25); if (!hintedPan && view.s > (view.baseS || view.s)) { hintedPan = true; toast('放大后可单指/双指拖动平移视角，↺ 复位', 2200); } }
   if (zOut) zOut.onclick = () => zoomBy(0.8);
   if (zReset) zReset.onclick = () => resetZoom();
   canvas.addEventListener('wheel', (e) => { e.preventDefault(); zoomBy(e.deltaY < 0 ? 1.12 : 0.9); }, { passive: false });
