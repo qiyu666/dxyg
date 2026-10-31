@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-title" content="The Ants" />
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="assets/icon-192.png" />
-<link rel="stylesheet" href="style.css?v=10" />
+<link rel="stylesheet" href="style.css?v=11" />
 <title>The Ants · 小小蚁国</title>
 </head>
 <body>
@@ -30,12 +30,17 @@
     <canvas id="cv"></canvas>
     <div id="toast" class="toast"></div>
     <div id="overlay" class="overlay hidden"><div class="overlay-card" id="overlay-card"></div></div>
+    <div id="zoomctl" class="hidden">
+      <button id="z-in" aria-label="放大">＋</button>
+      <button id="z-out" aria-label="缩小">－</button>
+      <button id="z-reset" aria-label="复位">↺</button>
+    </div>
   </main>
 
   <nav id="bottom" class="hidden">
     <div id="bottom-content"></div>
   </nav>
 </div>
-<script src="game.js?v=10"></script>
+<script src="game.js?v=11"></script>
 </body>
 </html>
