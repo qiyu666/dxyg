@@ -1780,43 +1780,39 @@ body{
     }
   }
 
+  function hexPath(cx, cy, s) {
+    ctx.beginPath();
+    for (let i = 0; i < 6; i++) { const a = Math.PI / 3 * i - Math.PI / 2; const x = cx + s * Math.cos(a), y = cy + s * Math.sin(a); if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); }
+    ctx.closePath();
+  }
   function drawHexGrid(tiles, radius, isHome) {
-    const R = radius * HEX * 1.732 + HEX;
-    // ① 有机泥土基底（一片连续的土，边缘渐淡；不再是六格）
-    const soil = ctx.createRadialGradient(0, 0, R * 0.15, 0, 0, R + 24);
-    soil.addColorStop(0, '#3d2f1b'); soil.addColorStop(0.65, '#2a1f12'); soil.addColorStop(1, 'rgba(18,12,7,0)');
-    ctx.fillStyle = soil; ctx.beginPath(); ctx.arc(0, 0, R + 24, 0, 7); ctx.fill();
-    ctx.save(); ctx.beginPath(); ctx.arc(0, 0, R + 12, 0, 7); ctx.clip();
-    for (let i = 0; i < 140; i++) { const a = i * 2.399, rr = (i * 29) % R; const x = Math.cos(a) * rr, y = Math.sin(a) * rr * 0.82;
-      ctx.fillStyle = (i % 5 === 0) ? 'rgba(90,64,32,.14)' : 'rgba(0,0,0,.11)';
-      ctx.beginPath(); ctx.ellipse(x, y, 5 + (i % 4) * 2, 3 + (i % 3) * 2, a, 0, 7); ctx.fill(); }
-    ctx.restore();
-    // ② 已挖开/有建筑：有机洞室（软边圆、比六格略大→相邻连接成隧道/窸室）；未挖→露出土
+    const s = HEX * 0.98;
+    const soilFill = (q, r) => { const v = ((q * 53 + r * 97) % 7 + 7) % 7; return 'rgb(' + (92 + v * 4) + ',' + (66 + v * 3) + ',' + (40 + v * 2) + ')'; };
+    const roomFill = (t) => { if (t.type === 'queen') return '#2c2414'; if (t.type === 'tunnel') return '#0f0a05'; if (t.type === 'worker') return '#28321c'; if (t.type === 'soldier') return '#301a13'; if (t.type === 'storage') return '#2e2818'; if (t.type === 'speed') return '#263430'; return '#1a120a'; };
+    // 逐格画正六边形（土格=棕 / 已挖·建筑=深色）
     for (let q = -radius; q <= radius; q++) {
       for (let r = Math.max(-radius, -q - radius); r <= Math.min(radius, -q + radius); r++) {
-        const p = h2p(q, r); const t = tiles[hkey(q, r)];
-        if (!t || t.type === 'dirt') continue;
-        const isQueen = t.type === 'queen';
-        const roomR = isQueen ? HEX * 1.8 : HEX * 1.2;
-        let c;
-        if (isQueen) c = 'rgba(52,36,18,.96)';
-        else if (t.type === 'tunnel') c = 'rgba(13,8,5,.9)';
-        else if (t.type === 'worker') c = 'rgba(44,52,28,.96)';
-        else if (t.type === 'soldier') c = 'rgba(50,24,17,.96)';
-        else if (t.type === 'storage') c = 'rgba(46,38,20,.96)';
-        else c = 'rgba(26,44,38,.96)';
-        const gg = ctx.createRadialGradient(p.x, p.y, 1, p.x, p.y, roomR);
-        gg.addColorStop(0, c); gg.addColorStop(0.82, c); gg.addColorStop(1, 'rgba(0,0,0,0)');
-        ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(p.x, p.y, roomR, 0, 7); ctx.fill();
-        if (isQueen) { drawQueen(p.x, p.y, HEX); }
-        else if ((t.type === 'worker' || t.type === 'soldier') && t.hatch && t.hatch.stage !== 'active') { drawHatchStage(p.x, p.y, t, HEX); }
-        else if (t.type !== 'tunnel') {
-          const icon = BUILD[t.type].icon;
-          ctx.globalAlpha = .9; ctx.font = (HEX * 0.66) + 'px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-          ctx.fillStyle = '#d8c29a'; ctx.fillText(icon, p.x, p.y); ctx.globalAlpha = 1; ctx.textBaseline = 'alphabetic';
-          if (t.level > 1) { ctx.fillStyle = '#c9a84a'; ctx.font = (HEX * 0.24) + 'px system-ui'; ctx.fillText('Lv' + t.level, p.x, p.y + HEX * 0.58); }
+        const key = hkey(q, r);
+        const t = tiles[key];
+        const p = h2p(q, r);
+        hexPath(p.x, p.y, s);
+        ctx.fillStyle = (!t || t.type === 'dirt') ? soilFill(q, r) : roomFill(t);
+        ctx.fill();
+        if (t && t.type !== 'dirt') {
+          if (t.type === 'queen') { drawQueen(p.x, p.y, HEX); }
+          else if ((t.type === 'worker' || t.type === 'soldier') && t.hatch && t.hatch.stage !== 'active') { drawHatchStage(p.x, p.y, t, HEX); }
+          else if (t.type !== 'tunnel') {
+            ctx.globalAlpha = .9; ctx.font = (HEX * 0.6) + 'px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillStyle = '#d8c29a'; ctx.fillText(BUILD[t.type].icon, p.x, p.y); ctx.globalAlpha = 1; ctx.textBaseline = 'alphabetic';
+            if (t.level > 1) { ctx.fillStyle = '#c9a84a'; ctx.font = (HEX * 0.24) + 'px system-ui'; ctx.fillText('Lv' + t.level, p.x, p.y + HEX * 0.55); }
+          }
         }
       }
+    }
+    // 正六边形格缝（深色细线）
+    ctx.strokeStyle = 'rgba(0,0,0,.3)'; ctx.lineWidth = 1;
+    for (let q = -radius; q <= radius; q++) {
+      for (let r = Math.max(-radius, -q - radius); r <= Math.min(radius, -q + radius); r++) { const p = h2p(q, r); hexPath(p.x, p.y, s); ctx.stroke(); }
     }
     // 挖地道模式：在“可挖前线”（挨着已挖空的土格）画醒目提示，未打通的不提示
     if (!isHome && buildMode === 'dig') {
@@ -1827,11 +1823,9 @@ body{
           for (const [dq, dr] of DIRS) { const nt = tiles[hkey(q + dq, r + dr)]; if (nt && nt.type !== 'dirt') { fr = true; break; } }
           if (!fr) continue;
           const p2 = h2p(q, r);
-          const glow = ctx.createRadialGradient(p2.x, p2.y, 1, p2.x, p2.y, HEX * 0.72);
-          glow.addColorStop(0, 'rgba(255,190,90,.30)'); glow.addColorStop(1, 'rgba(255,190,90,0)');
-          ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(p2.x, p2.y, HEX * 0.72, 0, 7); ctx.fill();
-          ctx.strokeStyle = 'rgba(255,208,120,.9)'; ctx.lineWidth = 2; ctx.setLineDash([4, 3]);
-          ctx.beginPath(); ctx.arc(p2.x, p2.y, HEX * 0.62, 0, 7); ctx.stroke(); ctx.setLineDash([]);
+          ctx.fillStyle = 'rgba(255,190,90,.22)'; hexPath(p2.x, p2.y, s * 0.9); ctx.fill();
+          ctx.strokeStyle = 'rgba(255,215,140,.95)'; ctx.lineWidth = 2; ctx.setLineDash([5, 3]);
+          hexPath(p2.x, p2.y, s * 0.82); ctx.stroke(); ctx.setLineDash([]);
           ctx.fillStyle = 'rgba(255,224,160,.95)'; ctx.font = (HEX * 0.5) + 'px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
           ctx.fillText('⛏', p2.x, p2.y); ctx.textBaseline = 'alphabetic';
         }
