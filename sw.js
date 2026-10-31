@@ -1,4 +1,4 @@
-const CACHE = 'ant-kingdom-v17';
+const CACHE = 'ant-kingdom-v18';
 const ASSETS = [
   './',
   './index.html',

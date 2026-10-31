@@ -268,11 +268,11 @@ body{
   function upgradeReq(nextLevel) { return nextLevel === 2 ? 6 : 12; }
 
   const LEVELS = [
-    // 第一章 · 地下（照 地下蚁国 1.1/1.2：资源点 + 威胁分散；面包虫/鼠妇不攻击）
-    { chapter: '第一章 · 地下', name: '第一关', sub: '初次开掘', desc: '采集 40 食物：挖土找食物堆/面包虫/鼠妇（它们不攻击）。', kind: 'forage', forageGoal: 40, surface: false,
-      buriedKinds: ['mealworm', 'mealworm', 'mealworm', 'sowbug', 'sowbug'], buriedFood: 8, foodAmount: 30, foodRate: 12, foodMax: 24 },
-    { chapter: '第一章 · 地下', name: '第二关', sub: '威胁初现', desc: '清掉土里分散的威胁昆虫（面包虫/鼠妇无害）。', kind: 'clear', surface: false,
-      buriedKinds: ['mealworm', 'sowbug', 'spider', 'beetle', 'beetle', 'spider'], buriedFood: 8, foodAmount: 30, foodRate: 12, foodMax: 24 },
+    // 第一章 · 地下（照 地下蚁国 1.1/1.2：威胁 + 资源同在一关；面包虫/鼠妇不攻击、是可吃的资源）
+    { chapter: '第一章 · 地下', name: '第一关', sub: '开掘', desc: '消灭附近的威胁昆虫；土里还埋着面包虫/鼠妇和食物（不攻击，可吃）。', kind: 'clear', surface: false,
+      buriedKinds: ['spider', 'beetle', 'mealworm', 'mealworm', 'sowbug', 'sowbug'], buriedFood: 8, foodAmount: 30, foodRate: 12, foodMax: 24 },
+    { chapter: '第一章 · 地下', name: '第二关', sub: '清剿', desc: '威胁更多，全部清掉；资源（面包虫/鼠妇/食物）也都在土里。', kind: 'clear', surface: false,
+      buriedKinds: ['spider', 'spider', 'beetle', 'beetle', 'adultBeetle', 'mealworm', 'sowbug', 'sowbug'], buriedFood: 10, foodAmount: 30, foodRate: 12, foodMax: 24 },
     // 第二章 · 冲出地表（引入地表层）
     { chapter: '第二章 · 冲出地表', name: '第一关', sub: '登上地表', desc: '打通竖井爬上地表，采集 30 食物。', kind: 'surface', surface: true, forageGoal: 30, surfBugs: ['beetle', 'spider'],
       buriedKinds: [], buriedFood: 4, foodAmount: 30, foodRate: 12, foodMax: 20 },
@@ -1690,6 +1690,16 @@ body{
         ctx.strokeStyle = 'rgba(0,0,0,.5)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(pp.x, pp.y, 10, 0, 7); ctx.stroke();
         ctx.strokeStyle = 'rgba(255,190,50,.95)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(pp.x, pp.y, 10, -Math.PI / 2, -Math.PI / 2 + fr * 6.2832); ctx.stroke();
         ctx.fillStyle = 'rgba(255,190,50,.9)'; ctx.font = '8px system-ui'; ctx.textAlign = 'center'; ctx.fillText('挖掘', pp.x, pp.y - 13);
+      }
+      // 土上的散点标记（照 地下蚁国）：威胁红“！” / 面包虫鼠妇绿“？” / 食物“食”（只在埋藏那几点，实体挖到才见）
+      if (S.buried) for (const bk in S.buried) {
+        const bb = S.buried[bk], bd = bk.split(','), bp = h2p(+bd[0], +bd[1]);
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        if (bb.enemy) {
+          if (isThreat(bb.enemy)) { ctx.fillStyle = 'rgba(235,55,42,.95)'; ctx.font = 'bold 16px system-ui'; ctx.fillText('!', bp.x, bp.y); }
+          else { ctx.fillStyle = 'rgba(96,205,96,.95)'; ctx.font = 'bold 15px system-ui'; ctx.fillText('?', bp.x, bp.y); }
+        } else if (bb.food) { ctx.fillStyle = 'rgba(228,182,92,.9)'; ctx.font = 'bold 13px system-ui'; ctx.fillText('食', bp.x, bp.y); }
+        ctx.textBaseline = 'alphabetic';
       }
       // 蛛丝洞穴
       for (const w of S.webs) {
