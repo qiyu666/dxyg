@@ -330,9 +330,14 @@
       <div class="sub" style="opacity:.45;font-size:11px;margin-top:-8px">玩法 v4.0 · The Ants UI</div>
       <button class="big-btn" id="btn-new">🐜 新建蚁丘</button>
       <button class="ghost-btn" id="btn-saves">查看存档</button>
+      <button class="ghost-btn" id="btn-reload" style="margin-top:10px;font-size:12px;opacity:.7">↻ 重载·清缓存（手机白屏/卡住时点它）</button>
     `);
     document.getElementById('btn-new').onclick = showColorPick;
     document.getElementById('btn-saves').onclick = showSaves;
+    document.getElementById('btn-reload').onclick = function () {
+      try { localStorage.removeItem(SAVE_KEY); if ('serviceWorker' in navigator) navigator.serviceWorker.getRegistrations().then(function (rs) { rs.forEach(function (r) { return r.unregister(); }); }); } catch (e) { }
+      location.reload();
+    };
   }
 
   function showSaves() {
@@ -1948,9 +1953,22 @@
 
   function boot() {
     resize();
+    // 常驻“↻”自愈钮（右上角）：清 SW + 重载，手机上白屏/卡住时点它
+    try {
+      const rb = document.createElement('button');
+      rb.textContent = '↻';
+      rb.style.cssText = 'position:fixed;top:6px;right:6px;z-index:60;width:34px;height:34px;background:rgba(0,0,0,.55);color:#cbb27d;border:1px solid rgba(140,120,70,.55);border-radius:9px;font-size:17px;line-height:1';
+      rb.title = '重载/清缓存';
+      rb.onclick = function () { try { if ('serviceWorker' in navigator) navigator.serviceWorker.getRegistrations().then(function (rs) { rs.forEach(function (r) { r.unregister(); }); }); } catch (e) { } location.reload(); };
+      document.body.appendChild(rb);
+    } catch (e) { }
     showMenu();
     requestAnimationFrame(loop);
-    try { if ('serviceWorker' in navigator && location.search.indexOf('nosw') < 0) navigator.serviceWorker.register('sw.js').catch(() => { }); } catch (e) { }
+    try { if ('serviceWorker' in navigator && location.search.indexOf('nosw') < 0) {
+      navigator.serviceWorker.register('sw.js').then(function (reg) {
+        reg.onupdatefound = function () { var nw = reg.installing; if (!nw) return; nw.addEventListener('statechange', function () { if (nw.state === 'installed' && navigator.serviceWorker.controller) location.reload(); }); };
+      }).catch(function () { });
+    } } catch (e) { }
   }
   boot();
 
