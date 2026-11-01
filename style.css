@@ -52,6 +52,8 @@ body{
 #zoomctl{position:absolute; right:8px; bottom:10px; display:flex; flex-direction:column; gap:6px; z-index:6;}
 #zoomctl button{width:34px; height:34px; border-radius:50%; border:1.5px solid rgba(201,130,26,.5); background:rgba(20,14,8,.82); color:#e8d4a8; font-size:17px; line-height:1; cursor:pointer; padding:0; box-shadow:0 2px 6px rgba(0,0,0,.5);}
 #zoomctl button:active{background:rgba(60,44,20,.92);}
+#z-phel{border-color:rgba(220,90,70,.75); color:#f2cab6; background:rgba(44,14,10,.86); font-size:15px;}
+#z-phel:active{background:rgba(80,26,18,.95);}
 
 .toast{
   position:absolute; left:50%; top:12%; transform:translate(-50%,-6px);

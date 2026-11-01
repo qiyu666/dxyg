@@ -58,6 +58,8 @@ body{
 #zoomctl{position:absolute; right:8px; bottom:10px; display:flex; flex-direction:column; gap:6px; z-index:6;}
 #zoomctl button{width:34px; height:34px; border-radius:50%; border:1.5px solid rgba(201,130,26,.5); background:rgba(20,14,8,.82); color:#e8d4a8; font-size:17px; line-height:1; cursor:pointer; padding:0; box-shadow:0 2px 6px rgba(0,0,0,.5);}
 #zoomctl button:active{background:rgba(60,44,20,.92);}
+#z-phel{border-color:rgba(220,90,70,.75); color:#f2cab6; background:rgba(44,14,10,.86); font-size:15px;}
+#z-phel:active{background:rgba(80,26,18,.95);}
 
 .toast{
   position:absolute; left:50%; top:12%; transform:translate(-50%,-6px);
@@ -215,6 +217,7 @@ body{
     <div id="toast" class="toast"></div>
     <div id="overlay" class="overlay hidden"><div class="overlay-card" id="overlay-card"></div></div>
     <div id="zoomctl" class="hidden">
+      <button id="z-phel" aria-label="删除信息素" style="display:none">✕</button>
       <button id="z-in" aria-label="放大">＋</button>
       <button id="z-out" aria-label="缩小">－</button>
       <button id="z-reset" aria-label="复位">↺</button>
@@ -552,6 +555,14 @@ body{
   function showHUD(on) { hud.root.classList.toggle('hidden', !on); }
   function showBottom(on) { bottom.classList.toggle('hidden', !on); }
   function showZoom(on) { const z = document.getElementById('zoomctl'); if (z) z.classList.toggle('hidden', !on); }
+  // “× 删信息素”按钮：仅在当前队有信息素点时显示（放在缩放列最上）
+  let _phelBtn = null, _phelOn = null;
+  function refreshPhelBtn() {
+    if (!_phelBtn) _phelBtn = document.getElementById('z-phel');
+    if (!_phelBtn) return;
+    const want = screen === 'level' && S && S.squads && S.squads[S.selSquad] && S.squads[S.selSquad].marker;
+    if (want !== _phelOn) { _phelOn = want; _phelBtn.style.display = want ? '' : 'none'; }
+  }
   function hideOverlay() { overlay.classList.add('hidden'); if (screen === 'home' || screen === 'level') showBottom(true); }
   function showOverlay(html) { overlayCard.innerHTML = html; overlay.classList.remove('hidden'); showBottom(false); }
   function setHudExtra(t) { hud.extra.textContent = t || ''; }
@@ -642,7 +653,7 @@ body{
     home = h; S = null; screen = 'home'; buildMode = null; selectedHomeTile = null;
     home.forPhase = 0;
     hideOverlay(); fitMap(HOME_RADIUS);
-    showHUD(true); showBottom(true); showZoom(true);
+    showHUD(true); showBottom(true); showZoom(true); refreshPhelBtn();
     refreshHomeHUD(); refreshBottom();
   }
   function refreshHomeHUD() {
@@ -1726,6 +1737,7 @@ body{
   }
 
   function renderLevel() {
+    refreshPhelBtn();
     renderIdleBg();
     ctx.save();
     ctx.translate(view.cx + view.ox, view.cy + view.oy); ctx.scale(view.s, view.s * TILT);
@@ -2101,10 +2113,17 @@ body{
   canvas.addEventListener('pointercancel', (e) => { if (e.pointerId) pointers.delete(e.pointerId); pointerDown = false; clearTimeout(pressTimer); if (pointers.size === 0) gestureMax = 0; });
 
   // 缩放：＋/－/复位 按钮 + 滚轮（捏合已在上方指针事件里处理）
-  const zIn = document.getElementById('z-in'), zOut = document.getElementById('z-out'), zReset = document.getElementById('z-reset');
+  const zIn = document.getElementById('z-in'), zOut = document.getElementById('z-out'), zReset = document.getElementById('z-reset'), zPhel = document.getElementById('z-phel');
   if (zIn) zIn.onclick = () => { zoomBy(1.25); if (!hintedPan && view.s > (view.baseS || view.s)) { hintedPan = true; toast('放大后可单指/双指拖动平移视角，↺ 复位', 2200); } }
   if (zOut) zOut.onclick = () => zoomBy(0.8);
   if (zReset) zReset.onclick = () => resetZoom();
+  if (zPhel) zPhel.onclick = () => {
+    const sq = S && S.squads[S.selSquad];
+    if (!sq || !sq.marker) { refreshPhelBtn(); return; }
+    sq.marker = null;
+    for (const a of S.ants) if (a.squad === S.selSquad) { a.goalX = null; a.goalY = null; }
+    Sfx.tap(); toast('已删除信息素点', 900); refreshPhelBtn();
+  };
   canvas.addEventListener('wheel', (e) => { e.preventDefault(); zoomBy(e.deltaY < 0 ? 1.12 : 0.9); }, { passive: false });
 
   function collectSurface() {

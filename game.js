@@ -324,6 +324,14 @@
   function showHUD(on) { hud.root.classList.toggle('hidden', !on); }
   function showBottom(on) { bottom.classList.toggle('hidden', !on); }
   function showZoom(on) { const z = document.getElementById('zoomctl'); if (z) z.classList.toggle('hidden', !on); }
+  // “× 删信息素”按钮：仅在当前队有信息素点时显示（放在缩放列最上）
+  let _phelBtn = null, _phelOn = null;
+  function refreshPhelBtn() {
+    if (!_phelBtn) _phelBtn = document.getElementById('z-phel');
+    if (!_phelBtn) return;
+    const want = screen === 'level' && S && S.squads && S.squads[S.selSquad] && S.squads[S.selSquad].marker;
+    if (want !== _phelOn) { _phelOn = want; _phelBtn.style.display = want ? '' : 'none'; }
+  }
   function hideOverlay() { overlay.classList.add('hidden'); if (screen === 'home' || screen === 'level') showBottom(true); }
   function showOverlay(html) { overlayCard.innerHTML = html; overlay.classList.remove('hidden'); showBottom(false); }
   function setHudExtra(t) { hud.extra.textContent = t || ''; }
@@ -414,7 +422,7 @@
     home = h; S = null; screen = 'home'; buildMode = null; selectedHomeTile = null;
     home.forPhase = 0;
     hideOverlay(); fitMap(HOME_RADIUS);
-    showHUD(true); showBottom(true); showZoom(true);
+    showHUD(true); showBottom(true); showZoom(true); refreshPhelBtn();
     refreshHomeHUD(); refreshBottom();
   }
   function refreshHomeHUD() {
@@ -1498,6 +1506,7 @@
   }
 
   function renderLevel() {
+    refreshPhelBtn();
     renderIdleBg();
     ctx.save();
     ctx.translate(view.cx + view.ox, view.cy + view.oy); ctx.scale(view.s, view.s * TILT);
@@ -1873,10 +1882,17 @@
   canvas.addEventListener('pointercancel', (e) => { if (e.pointerId) pointers.delete(e.pointerId); pointerDown = false; clearTimeout(pressTimer); if (pointers.size === 0) gestureMax = 0; });
 
   // 缩放：＋/－/复位 按钮 + 滚轮（捏合已在上方指针事件里处理）
-  const zIn = document.getElementById('z-in'), zOut = document.getElementById('z-out'), zReset = document.getElementById('z-reset');
+  const zIn = document.getElementById('z-in'), zOut = document.getElementById('z-out'), zReset = document.getElementById('z-reset'), zPhel = document.getElementById('z-phel');
   if (zIn) zIn.onclick = () => { zoomBy(1.25); if (!hintedPan && view.s > (view.baseS || view.s)) { hintedPan = true; toast('放大后可单指/双指拖动平移视角，↺ 复位', 2200); } }
   if (zOut) zOut.onclick = () => zoomBy(0.8);
   if (zReset) zReset.onclick = () => resetZoom();
+  if (zPhel) zPhel.onclick = () => {
+    const sq = S && S.squads[S.selSquad];
+    if (!sq || !sq.marker) { refreshPhelBtn(); return; }
+    sq.marker = null;
+    for (const a of S.ants) if (a.squad === S.selSquad) { a.goalX = null; a.goalY = null; }
+    Sfx.tap(); toast('已删除信息素点', 900); refreshPhelBtn();
+  };
   canvas.addEventListener('wheel', (e) => { e.preventDefault(); zoomBy(e.deltaY < 0 ? 1.12 : 0.9); }, { passive: false });
 
   function collectSurface() {
