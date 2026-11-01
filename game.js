@@ -428,8 +428,9 @@
   function homeBuildAt(q, r) {
     if (!buildMode) return;
     const t = homeTile(home, q, r);
-    if (t && t.type !== 'dirt') { toast('这里已经有东西了'); return; }
-    if (!homeAdjacentDug(home, q, r)) { toast('需要挨着已有通道'); return; }
+    if (t && t.type === 'queen') { toast('蚁后室不能覆盖'); return; }
+    if (!t || t.type === 'dirt') { toast('未挖的泥土不能直接建：先挖成通道，再在通道里建', 1800); return; }
+    if (t.type !== 'tunnel') { toast('这里已经有建筑'); return; }
     const def = BUILD[buildMode];
     if (home.food < def.cost) { toast('食物不足（需 ' + def.cost + '）'); return; }
     home.food -= def.cost;
@@ -871,11 +872,8 @@
     const key = hkey(q, r);
     const t = S.tiles[key];
     if (t && t.type === 'queen') { toast('蚁后室不能覆盖'); return true; }
-    if (t && t.type !== 'dirt' && t.type !== 'tunnel') { toast('这里已经有建筑'); return true; }
-    // 需要挨着已有区域
-    let adj = false;
-    for (const [dq, dr] of DIRS) { const nt = S.tiles[hkey(q + dq, r + dr)]; if (nt && nt.type !== 'dirt') { adj = true; break; } }
-    if (!adj) { toast('需要挨着巢穴或已有建筑'); return true; }
+    if (!t || t.type === 'dirt') { toast('未挖的泥土不能直接建：先「挖地道」挖成通道，再在通道里建', 1800); return true; }
+    if (t.type !== 'tunnel') { toast('这里已经有建筑'); return true; }
     const def = BUILD[buildMode];
     if (S.food < def.cost) { toast('食物不足（需 ' + def.cost + '）'); return true; }
     if (idleWorkers() < 1) { toast('无空闲工蚁去建造，等工蚁空闲（工蚁负责建造/挖地道/取卵）'); return true; }
