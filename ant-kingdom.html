@@ -1839,8 +1839,8 @@ body{
   }
 
   function drawHexGrid(tiles, radius, isHome, soilFn) {
-    const s = HEX * 0.98;
-    const rockFill = (q, r) => { const v = ((q * 53 + r * 97) % 7 + 7) % 7; return 'rgb(' + (78 + v * 2) + ',' + (72 + v * 2) + ',' + (62 + v) + ')'; };
+    const s = HEX;   // 无缝拼接的岩地（blob 不规则→不是大六边形）
+    const rockFill = (q, r) => { const v = ((q * 53 + r * 97) % 7 + 7) % 7; return 'rgb(' + (104 + v * 4) + ',' + (98 + v * 4) + ',' + (84 + v * 3) + ')'; };
     // 逐格：岩（灰色、略大→相邻无缝合并成岩块）/ 通道（黑洞）/ 建筑
     for (let q = -radius; q <= radius; q++) {
       for (let r = Math.max(-radius, -q - radius); r <= Math.min(radius, -q + radius); r++) {
@@ -1850,8 +1850,10 @@ body{
         if (!dug && !(soilFn && soilFn(q, r))) continue;   // 虚空（洞外）不画 → 黑底
         const p = h2p(q, r);
         const isRock = !dug, isTun = dug && t.type === 'tunnel', isNest = dug && t.type === 'queen';
-        ctx.fillStyle = isRock ? rockFill(q, r) : (isTun ? '#120d08' : (isNest ? '#0e0b07' : rockFill(q, r)));
-        ctx.beginPath(); ctx.arc(p.x, p.y, s * 1.28, 0, 7); ctx.fill();   // 重叠圆→平滑岩块（地下蚁国式）
+        ctx.fillStyle = isRock ? rockFill(q, r) : (isTun ? '#141009' : (isNest ? '#0e0b07' : rockFill(q, r)));
+        hexPath(p.x, p.y, s); ctx.fill();   // 无缝拼岩地（相邻同色→连续岩面）
+        // 每格一条横向细岩纹（仿岩/腐木，很淡）
+        if (isRock) { ctx.strokeStyle = 'rgba(0,0,0,.09)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(p.x - s * 0.72, p.y + 2); ctx.lineTo(p.x + s * 0.72, p.y + 2); ctx.stroke(); }
         // 建筑/孵化
         if (dug && !isNest && !isTun) {
           if ((t.type === 'worker' || t.type === 'soldier') && t.hatch && t.hatch.stage !== 'active') { drawHatchStage(p.x, p.y, t, HEX); }
