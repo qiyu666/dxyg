@@ -833,7 +833,6 @@
       html += `<div class="panel-row sq-opts">
         <button class="tog ${s.allowAttack ? 'on' : 'off'}" id="tog-atk">${s.allowAttack ? '⚔ 攻' : '⚔ 停'}</button>
         <button class="tog ${s.allowCarry ? 'on' : 'off'}" id="tog-carry">${s.allowCarry ? '🍃 搬' : '🍃 停'}</button></div>`;
-      html += `<div class="panel-row"><button class="pbtn" id="pher-clear" style="flex:1"><span class="p-ico">✕</span><span class="p-nm">清除信息素</span><span class="p-cost">${s.marker ? '队 ' + 'ⅠⅡⅢⅣⅤ'[S.selSquad] + ' 已设' : '队 ' + 'ⅠⅡⅢⅣⅤ'[S.selSquad]}</span></button></div>`;
       html += '<div class="hint">点上方选队伍 → 再点地图放信息素点（该队蚂蚁跟随）· 双击队伍=清空</div>';
     } else {
       html += `<div class="hint">${S.viewLayer === 'surface' ? '地表：选「信息素」选队伍后点地图放信息素点，蚂蚁走竖井上去采集/战斗；点「到地面」回地下' : (S.lv.surface ? '点「到地面」爬上地表：选队伍+放信息素点，工蚁/兵蚁经竖井往返采集与清剿' : '本章为纯地下，无地表（第二章解锁地表）')}</div>`;
@@ -871,13 +870,6 @@
     });
     const t1 = document.getElementById('tog-atk'); if (t1) t1.onclick = () => { S.squads[S.selSquad].allowAttack = !S.squads[S.selSquad].allowAttack; refreshLevelBottom(); };
     const t2 = document.getElementById('tog-carry'); if (t2) t2.onclick = () => { S.squads[S.selSquad].allowCarry = !S.squads[S.selSquad].allowCarry; refreshLevelBottom(); };
-    const pc = document.getElementById('pher-clear'); if (pc) pc.onclick = () => {
-      const sq = S.squads[S.selSquad];
-      if (!sq.marker) { toast('队伍 ' + 'ⅠⅡⅢⅣⅤ'[S.selSquad] + ' 没有信息素点', 1000); return; }
-      sq.marker = null;
-      for (const a of S.ants) if (a.squad === S.selSquad) { a.goalX = null; a.goalY = null; }
-      Sfx.tap(); toast('已删除队伍 ' + 'ⅠⅡⅢⅣⅤ'[S.selSquad] + ' 的信息素', 1100); refreshLevelBottom();
-    };
     const dc = document.getElementById('dig-cancel'); if (dc) dc.onclick = () => cancelAllDigs();
   }
 
