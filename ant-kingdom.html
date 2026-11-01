@@ -1792,6 +1792,11 @@ body{
       ctx.fillStyle = g; ctx.beginPath(); ctx.arc(m.q, m.r, 22, 0, 7); ctx.fill();
       ctx.strokeStyle = sq.allowAttack ? 'rgba(210,90,60,.8)' : 'rgba(150,210,120,.8)';
       ctx.lineWidth = 1.6; ctx.beginPath(); ctx.arc(m.q, m.r, 8, 0, 7); ctx.stroke();
+      // ×（点它/点标记即可删除信息素点）
+      ctx.strokeStyle = 'rgba(255,255,255,.95)'; ctx.lineWidth = 2.2; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(m.q - 5, m.r - 5); ctx.lineTo(m.q + 5, m.r + 5); ctx.moveTo(m.q + 5, m.r - 5); ctx.lineTo(m.q - 5, m.r + 5); ctx.stroke(); ctx.lineCap = 'butt';
+      ctx.fillStyle = 'rgba(255,255,255,.75)'; ctx.font = '9px system-ui'; ctx.textAlign = 'center';
+      ctx.fillText('点×删', m.q, m.r + 20);
     }
     // 蚁后（仅地下）
     if (vz === 'under') {
@@ -2143,6 +2148,14 @@ body{
   function handleLevelTap(lx, ly) {
     const w = s2w(lx, ly);
     const h = p2h(w.x, w.y);
+    // 点信息素点（标记上的 ×）→ 直接删除
+    const sq0 = S.squads[S.selSquad];
+    if (sq0 && sq0.marker && Math.hypot(sq0.marker.q - w.x, sq0.marker.r - w.y) < 14) {
+      sq0.marker = null;
+      for (const a of S.ants) if (a.squad === S.selSquad) { a.goalX = null; a.goalY = null; }
+      Sfx.tap(); toast('已删除信息素点', 900);
+      return;
+    }
     // 地表视图：不能建/挖（地下专属），但能放信息素点（蚂蚁走竖井上去）
     if (S.viewLayer === 'surface') {
       if (buildMode) { toast('地表不能建造/挖掘（先点「到地面」回地下）', 1300); return; }
