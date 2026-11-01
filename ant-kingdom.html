@@ -668,8 +668,7 @@ body{
   function homeDigAt(q, r) {
     const t = homeTile(home, q, r);
     if (t && t.type !== 'dirt') return;
-    if (home.soil && !home.soil(q, r)) { toast('这里是岩石，没有土可挖', 1300); return; }
-    if (!homeAdjacentDug(home, q, r)) { toast('未打通：得挨着已挖通的外缘挖（地下蚁国式）', 1500); return; }
+    if (!exposedFace(home.tiles, q, r)) { toast('无暴露面：泥土得挨着已挖通道/蚁巢才能挖', 1500); return; }
     if (home.digBlocks <= 0) { toast('挖掘方块已用完（关卡奖励可获得）'); return; }
     home.digBlocks--;
     home.tiles[hkey(q, r)] = { type: 'tunnel', level: 1 };
@@ -1038,6 +1037,10 @@ body{
       html += '<div class="panel-row">' + armBtn('storage', '食物仓库') + armBtn('speed', '加速方格') +
         `<button class="pbtn ${buildMode === 'demolish' ? 'active' : ''}" data-arm="demolish"><span class="p-ico">💥</span><span class="p-nm">拆除</span><span class="p-cost">返70%</span></button>` +
         `<button class="pbtn ${buildMode === 'dig' ? 'active' : ''}" data-arm="dig"><span class="p-ico">⛏️</span><span class="p-nm">挖地道</span><span class="p-cost">工蚁</span></button>` + '</div>';
+      if (buildMode === 'dig') {
+        const dn = S.tiles ? Object.keys(S.tiles).filter(k => S.tiles[k] && S.tiles[k].dig).length : 0;
+        html += `<div class="panel-row"><button class="pbtn" id="dig-cancel" style="flex:1"><span class="p-ico">✕</span><span class="p-nm">取消挖掘</span><span class="p-cost">${dn ? dn + ' 处' : '中止工蚁'}</span></button></div>`;
+      }
     } else if (tab === 'ants') {
       html += '<div class="panel-row">' + armBtn('worker', '工蚁') + armBtn('soldier', '兵蚁') + '</div>';
       html += '<div class="hint">孵化方格：工蚁去蚁后取卵→卵→白幼虫→黄蛹→耗食物羽化（工蚁 2 / 兵蚁 5）；蚁死后方格快速补。最大种群=孵化方格数</div>';
@@ -1086,6 +1089,7 @@ body{
     });
     const t1 = document.getElementById('tog-atk'); if (t1) t1.onclick = () => { S.squads[S.selSquad].allowAttack = !S.squads[S.selSquad].allowAttack; refreshLevelBottom(); };
     const t2 = document.getElementById('tog-carry'); if (t2) t2.onclick = () => { S.squads[S.selSquad].allowCarry = !S.squads[S.selSquad].allowCarry; refreshLevelBottom(); };
+    const dc = document.getElementById('dig-cancel'); if (dc) dc.onclick = () => cancelAllDigs();
   }
 
   // 关卡建造/挖掘
@@ -1132,15 +1136,17 @@ body{
     Sfx.dig(); refreshLevelHUD(); refreshLevelBottom();
     toast('拆除 ' + (def ? def.name : t.type) + '，返还 ' + refund + ' 到地表', 1400);
   }
+  // 暴露面判定：泥土格至少一条边挨着“已挖通道(tunnel)”或“蚁巢中心(queen)”才可挖
+  function exposedFace(tiles, q, r) {
+    for (const [dq, dr] of DIRS) { const nt = tiles[hkey(q + dq, r + dr)]; if (nt && (nt.type === 'tunnel' || nt.type === 'queen')) return true; }
+    return false;
+  }
   function levelDigAt(q, r) {
     if (!inRadius(q, r, S.radius)) return;
     const key = hkey(q, r);
     const t = S.tiles[key];
     if (t && t.type !== 'dirt') return;
-    if (S.soil && !S.soil(q, r)) { toast('这里是岩石，没有土可挖', 1300); return; }
-    let adj = false;
-    for (const [dq, dr] of DIRS) { const nt = S.tiles[hkey(q + dq, r + dr)]; if (nt && nt.type !== 'dirt') { adj = true; break; } }
-    if (!adj) { toast('未打通：得挨着已挖通的外缘挖（地下蚁国式）', 1500); return; }
+    if (!exposedFace(S.tiles, q, r)) { toast('无暴露面：泥土得挨着已挖通道/蚁巢才能挖', 1500); return; }
     S.tiles[key] = { type: 'tunnel', level: 1 };
     revealTile(key);
     Sfx.dig();
@@ -1162,18 +1168,32 @@ body{
     if (!inRadius(q, r, S.radius)) return;
     const key = hkey(q, r), t = S.tiles[key];
     if (t && t.type === 'queen') { toast('蚁后室不能挖'); return; }
-    if (t && t.type !== 'dirt' && t.type !== 'tunnel') { toast('这里已有建筑'); return; }
-    if (S.soil && !S.soil(q, r)) { toast('这里是岩石，没有土可挖', 1300); return; }
-    let adj = false;
-    for (const [dq, dr] of DIRS) { const nt = S.tiles[hkey(q + dq, r + dr)]; if (nt && nt.type !== 'dirt') { adj = true; break; } }
-    if (!adj) { toast('未打通：这块土不挨着已挖通的外缘，先挖通旁边（地下蚁国式）', 1500); return; }
-    if (!S.tiles[key] || S.tiles[key].type !== 'dirt') S.tiles[key] = { type: 'dirt' };
-    S.tiles[key].dig = S.tiles[key].dig || { progress: 0, need: 2 };
+    if (t && t.type === 'tunnel') { return; }   // 已挖通的通道无需再挖
+    if (t && t.type !== 'dirt') { toast('这里已有建筑'); return; }
+    if (!exposedFace(S.tiles, q, r)) { toast('无暴露面：这块土没挨着已挖通道/蚁巢，挖不了', 1600); return; }
+    S.tiles[key] = { type: 'dirt' };
+    S.tiles[key].dig = { progress: 0, need: 2 };
     const p = h2p(q, r);
     let best = null, bd = 1e9;
     for (const a of S.ants) { if (a.hp <= 0 || a.carry > 0 || a.digKey) continue; if (a.kind !== 'worker') continue; const d = Math.hypot(a.x - p.x, a.y - p.y); if (d < bd) { bd = d; best = a; } }
-    if (best) { best.digKey = key; best.digQ = q; best.digR = r; Sfx.tap(); toast('工蚁前往挖掘地道', 1000); }
+    if (best) { best.digKey = key; best.digQ = q; best.digR = r; Sfx.tap(); toast('工蚁前往挖掘 · 底部「取消挖掘」可中止', 1500); }
     else { toast('没有空闲工蚁：先造工蚁孵化室并分配', 1400); }
+    refreshLevelBottom();
+  }
+
+  // 取消所有已派工蚁的挖掘（回收工蚁、清进度；挖到一半的土格变回泥土）
+  function cancelAllDigs() {
+    let n = 0;
+    for (const key in S.tiles) {
+      const t = S.tiles[key];
+      if (!t || !t.dig) continue;
+      n++;
+      if (t.type === 'dirt' && !t.level && !t.hatch) delete S.tiles[key];   // 回到未挖（土壤=不在tiles）
+      else delete t.dig;
+    }
+    for (const a of S.ants) { if (a.digKey) { a.digKey = null; a.digQ = null; a.digR = null; a.state = 'idle'; } }
+    Sfx.tap();
+    toast(n ? ('已取消 ' + n + ' 处挖掘，工蚁回收') : '没有正在挖的', 1200);
     refreshLevelBottom();
   }
 
@@ -1796,7 +1816,7 @@ body{
       ctx.fillText('拆除：点一个建筑（返还 70% 食物到地表）', LW / 2, LH - 18);
     } else if (buildMode === 'dig') {
       ctx.fillStyle = 'rgba(232,214,170,.9)'; ctx.font = '11px system-ui';
-      ctx.fillText('挖掘：点任意土格，工蚁过去挖；只有挨着已挖通外缘的挖得动（未打通的挖不了）', LW / 2, LH - 18);
+      ctx.fillText('挖掘：点金色⛏泥土（挨着已挖通道/蚁巢）→工蚁挖开；「取消挖掘」可中止', LW / 2, LH - 18);
     } else if (S.pheromone) {
       ctx.fillStyle = 'rgba(190,230,150,.9)'; ctx.font = '11px system-ui';
       ctx.fillText('信息素：点地图为该队（' + 'ⅠⅡⅢⅣⅤ'[S.selSquad] + '）放信息素点', LW / 2, LH - 18);
@@ -1832,19 +1852,17 @@ body{
     for (let q = -radius; q <= radius; q++) {
       for (let r = Math.max(-radius, -q - radius); r <= Math.min(radius, -q + radius); r++) { const p = h2p(q, r); hexPath(p.x, p.y, s); ctx.stroke(); }
     }
-    // 挖地道模式：在“可挖前线”（挨着已挖空的土格）画提示，未打通的不提示
+    // 挖地道模式：高亮“可挖泥土”（有暴露面：挨着已挖通道/蚁巢）
     if (!isHome && buildMode === 'dig') {
       for (let q = -radius; q <= radius; q++) {
         for (let r = Math.max(-radius, -q - radius); r <= Math.min(radius, -q + radius); r++) {
           const t2 = tiles[hkey(q, r)]; if (t2 && t2.type !== 'dirt') continue;
-          let fr = false;
-          for (const [dq, dr] of DIRS) { const nt = tiles[hkey(q + dq, r + dr)]; if (nt && nt.type !== 'dirt') { fr = true; break; } }
-          if (!fr) continue;
+          if (!exposedFace(tiles, q, r)) continue;
           const p2 = h2p(q, r);
-          ctx.fillStyle = 'rgba(255,190,90,.22)'; hexPath(p2.x, p2.y, s * 0.9); ctx.fill();
-          ctx.strokeStyle = 'rgba(255,215,140,.95)'; ctx.lineWidth = 2; ctx.setLineDash([5, 3]);
+          ctx.fillStyle = 'rgba(255,205,90,.34)'; hexPath(p2.x, p2.y, s * 0.95); ctx.fill();
+          ctx.strokeStyle = 'rgba(255,225,140,.95)'; ctx.lineWidth = 2; ctx.setLineDash([5, 3]);
           hexPath(p2.x, p2.y, s * 0.82); ctx.stroke(); ctx.setLineDash([]);
-          ctx.fillStyle = 'rgba(255,224,160,.95)'; ctx.font = (HEX * 0.5) + 'px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.fillStyle = '#ffe6a8'; ctx.font = (HEX * 0.5) + 'px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
           ctx.fillText('⛏', p2.x, p2.y); ctx.textBaseline = 'alphabetic';
         }
       }
@@ -2217,6 +2235,9 @@ body{
     get homes() { return homes; }, get buildMode() { return buildMode; },
     newHome, showMenu, showSaves, showColorPick, enterHome, startLevel,
     levelBuildAt, levelDigAt, makeEnemy,
+    orderDigAt: (q, r) => { return orderDigAt(q, r); },
+    cancelAllDigs() { return cancelAllDigs(); },
+    exposedFace(q, r) { return exposedFace(S.tiles, q, r); },
     setBuildMode: (k) => { buildMode = k; refreshBottom(); },
     homeBuild: (q, r) => { if (!buildMode) buildMode = 'worker'; homeBuildAt(q, r); },
     homeDig: (q, r) => homeDigAt(q, r),
