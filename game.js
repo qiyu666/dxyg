@@ -441,7 +441,7 @@
   function homeDigAt(q, r) {
     const t = homeTile(home, q, r);
     if (t && t.type !== 'dirt') return;
-    if (!exposedFace(home.tiles, q, r)) { toast('无暴露面：泥土得挨着已挖通道/蚁巢才能挖', 1500); return; }
+    if (!exposedFace(home.tiles, q, r)) { toast('无暴露面：这块土没挨着已挖空间（通道/蚁巢/建筑），挖不了', 1600); return; }
     if (home.digBlocks <= 0) { toast('挖掘方块已用完（关卡奖励可获得）'); return; }
     home.digBlocks--;
     home.tiles[hkey(q, r)] = { type: 'tunnel', level: 1 };
@@ -908,7 +908,7 @@
   }
   // 暴露面判定：泥土格至少一条边挨着“已挖通道(tunnel)”或“蚁巢中心(queen)”才可挖
   function exposedFace(tiles, q, r) {
-    for (const [dq, dr] of DIRS) { const nt = tiles[hkey(q + dq, r + dr)]; if (nt && (nt.type === 'tunnel' || nt.type === 'queen')) return true; }
+    for (const [dq, dr] of DIRS) { const nt = tiles[hkey(q + dq, r + dr)]; if (nt && nt.type !== 'dirt') return true; }   // 已挖空间=任何已挖的格（通道/蚁巢/建筑）
     return false;
   }
   function levelDigAt(q, r) {
@@ -916,7 +916,7 @@
     const key = hkey(q, r);
     const t = S.tiles[key];
     if (t && t.type !== 'dirt') return;
-    if (!exposedFace(S.tiles, q, r)) { toast('无暴露面：泥土得挨着已挖通道/蚁巢才能挖', 1500); return; }
+    if (!exposedFace(S.tiles, q, r)) { toast('无暴露面：这块土没挨着已挖空间（通道/蚁巢/建筑），挖不了', 1600); return; }
     S.tiles[key] = { type: 'tunnel', level: 1 };
     revealTile(key);
     Sfx.dig();
@@ -940,7 +940,7 @@
     if (t && t.type === 'queen') { toast('蚁后室不能挖'); return; }
     if (t && t.type === 'tunnel') { return; }   // 已挖通的通道无需再挖
     if (t && t.type !== 'dirt') { toast('这里已有建筑'); return; }
-    if (!exposedFace(S.tiles, q, r)) { toast('无暴露面：这块土没挨着已挖通道/蚁巢，挖不了', 1600); return; }
+    if (!exposedFace(S.tiles, q, r)) { toast('无暴露面：这块土没挨着已挖空间（通道/蚁巢/建筑），挖不了', 1600); return; }
     S.tiles[key] = { type: 'dirt' };
     S.tiles[key].dig = { progress: 0, need: 2 };
     const p = h2p(q, r);
@@ -1586,7 +1586,7 @@
       ctx.fillText('拆除：点一个建筑（返还 70% 食物到地表）', LW / 2, LH - 18);
     } else if (buildMode === 'dig') {
       ctx.fillStyle = 'rgba(232,214,170,.9)'; ctx.font = '11px system-ui';
-      ctx.fillText('挖掘：点金色⛏泥土（挨着已挖通道/蚁巢）→工蚁挖开；「取消挖掘」可中止', LW / 2, LH - 18);
+      ctx.fillText('挖掘：点金色⛏泥土（挨着已挖空间）→工蚁挖开；「取消挖掘」可中止', LW / 2, LH - 18);
     } else if (S.pheromone) {
       ctx.fillStyle = 'rgba(190,230,150,.9)'; ctx.font = '11px system-ui';
       ctx.fillText('信息素：点地图为该队（' + 'ⅠⅡⅢⅣⅤ'[S.selSquad] + '）放信息素点', LW / 2, LH - 18);
