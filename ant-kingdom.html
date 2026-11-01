@@ -264,8 +264,8 @@ body{
 
   const LEVELS = [
     // 第一章 · 地下（照 地下蚁国 1.1/1.2：威胁 + 资源同在一关；面包虫/鼠妇不攻击、是可吃的资源）
-    { chapter: '第一章 · 地下', name: '第一关', sub: '开掘', desc: '王后在腐木下安家。挖开岩洞，消灭附近所有生物；土里还埋着面包虫/鼠妇和食物（不攻击，可吃）。', kind: 'clear', surface: false, narration: '这只王后已经在腐木下安了家——她很胖、也很脆弱，需要蚁群护卫与清剿周围。',
-      buriedKinds: ['spider', 'spider', 'beetle', 'beetle', 'beetle', 'adultBeetle', 'mealworm', 'mealworm', 'mealworm', 'sowbug', 'sowbug', 'sowbug'], buriedFood: 8, foodAmount: 30, foodRate: 12, foodMax: 24 },
+    { chapter: '第一章 · 地下', name: '第一关', sub: '开掘', desc: '消灭附近的威胁昆虫；土里还埋着面包虫/鼠妇和食物（不攻击，可吃）。', kind: 'clear', surface: false,
+      buriedKinds: ['spider', 'beetle', 'mealworm', 'mealworm', 'sowbug', 'sowbug'], buriedFood: 8, foodAmount: 30, foodRate: 12, foodMax: 24 },
     { chapter: '第一章 · 地下', name: '第二关', sub: '清剿', desc: '威胁更多，全部清掉；资源（面包虫/鼠妇/食物）也都在土里。', kind: 'clear', surface: false,
       buriedKinds: ['spider', 'spider', 'beetle', 'beetle', 'adultBeetle', 'mealworm', 'sowbug', 'sowbug'], buriedFood: 10, foodAmount: 30, foodRate: 12, foodMax: 24 },
     // 第二章 · 冲出地表（引入地表层）
@@ -469,7 +469,6 @@ body{
       cleared: LEVELS.map(() => false),
       tiles: {},
     };
-    h.soil = makeSoilFn(HOME_RADIUS, (colorIdx || 0) + 1);
     makeQueenTiles(h.tiles);
     homes.push(h); persist();
     return h;
@@ -641,7 +640,6 @@ body{
   function enterHome(h) {
     if (!h || !h.tiles) h = newHome(0); // 存档损坏/home 为 null 时自动新建，不崩
     home = h; S = null; screen = 'home'; buildMode = null; selectedHomeTile = null;
-    h.soil = h.soil || makeSoilFn(HOME_RADIUS, (h.color || 0) + 1);
     home.forPhase = 0;
     hideOverlay(); fitMap(HOME_RADIUS);
     showHUD(true); showBottom(true); showZoom(true);
@@ -815,7 +813,6 @@ body{
       raidTimer: 120, raidCount: 0, raidStolen: false, pointsSpent: 0, foodTimer: (lv.foodRate || 12),
       uiTab: 'build', viewLayer: 'under', pheromone: false,
     };
-    st.soil = makeSoilFn(st.radius, idx + 1);   // 本关不规则土壤区
     makeQueenTiles(st.tiles);
     for (let i = 0; i < 5; i++) st.squads.push({ assigned: new Set(), marker: null, allowAttack: true, allowCarry: true });
     // 初始 7 只工蚁，默认分配到队伍 I
@@ -1000,7 +997,7 @@ body{
   function levelObjectiveText() {
     const lv = S.lv;
     if (lv.kind === 'forage') return '储备食物 ' + Math.floor(S.harvested || 0) + '/' + lv.forageGoal + '（挖土找食物/面包虫/鼠妇，它们不攻击）';
-    if (lv.kind === 'clear') return '消灭附近所有生物 · 剩 ' + threatsLeft();
+    if (lv.kind === 'clear') return '威胁 ' + threatsLeft() + '（挖土钻出，面包虫/鼠妇不在此计）';
     if (lv.kind === 'expand') return '兵蚁孵化室 ' + S.builtSoldier + '/' + lv.needS + ' · 工蚁 ' + S.builtWorker + '/' + lv.needW;
     if (lv.kind === 'surface') return '采集食物 ' + Math.floor(S.harvested || 0) + '/' + lv.forageGoal + (lv.clearBugs ? ' · 地表昆虫 ' + surfaceBugsLeft() : '');
     return '';
@@ -1605,10 +1602,23 @@ body{
   }
 
   function renderIdleBg() {
-    // 洞穴黑暗（未探明/虚空 = 黑；中心微亮）
-    const g = ctx.createRadialGradient(LW / 2, LH * 0.46, 20, LW / 2, LH * 0.46, LH * 0.75);
-    g.addColorStop(0, '#14100b'); g.addColorStop(0.5, '#0a0806'); g.addColorStop(1, '#030303');
+    // 深色岩洞基底（上略亮、下发黑）
+    const g = ctx.createLinearGradient(0, 0, 0, LH);
+    g.addColorStop(0, '#1c150e'); g.addColorStop(0.5, '#140f09'); g.addColorStop(1, '#0a0705');
     ctx.fillStyle = g; ctx.fillRect(0, 0, LW, LH);
+    // 岩层 / 土壤斑驳纹理（固定种子，不闪烁）
+    for (let i = 0; i < 240; i++) {
+      const x = (i * 137.3) % LW, y = (i * 91.7) % LH, r = 3 + (i % 8);
+      ctx.fillStyle = (i % 4 === 0) ? 'rgba(150,120,70,.05)' : 'rgba(0,0,0,.10)';
+      ctx.beginPath(); ctx.ellipse(x, y, r * 1.7, r * 0.9, (i * 0.7), 0, 7); ctx.fill();
+    }
+    // 零星苔藓（去饱和绿）
+    ctx.fillStyle = 'rgba(70,96,52,.10)';
+    for (let i = 0; i < 40; i++) { const x = (i * 211.3) % LW, y = (i * 137.9) % LH; ctx.beginPath(); ctx.ellipse(x, y, 8 + (i % 6), 5 + (i % 4), 0, 0, 7); ctx.fill(); }
+    // 中心微光（压迫感）
+    const rg = ctx.createRadialGradient(LW / 2, LH * 0.46, 10, LW / 2, LH * 0.46, LH * 0.55);
+    rg.addColorStop(0, 'rgba(170,140,85,.14)'); rg.addColorStop(0.6, 'rgba(0,0,0,0)');
+    ctx.fillStyle = rg; ctx.fillRect(0, 0, LH, LH);
   }
 
   function hexPath(cx, cy, size) {
@@ -1646,7 +1656,7 @@ body{
     // 巢
     ctx.save();
     ctx.translate(view.cx + view.ox, view.cy + view.oy); ctx.scale(view.s, view.s * TILT);
-    drawHexGrid(home.tiles, HOME_RADIUS, true, home.soil);
+    drawHexGrid(home.tiles, HOME_RADIUS, true);
     ctx.restore();
     // 资源行
     ctx.fillStyle = 'rgba(200,170,120,.75)'; ctx.font = '11px system-ui'; ctx.textAlign = 'center';
@@ -1696,31 +1706,21 @@ body{
     const vz = S.viewLayer;                              // 'under' | 'surface'
     const inVz = (x, y) => (vz === 'surface' ? zoneOf(x, y) === 'surface' : zoneOf(x, y) === 'under');
     if (vz === 'under') {
-      drawHexGrid(S.tiles, LEVEL_RADIUS, false, S.soil);
+      drawHexGrid(S.tiles, LEVEL_RADIUS, false);
       // 挖掘进度（工蚁正在挖的地道）
       for (const key in S.tiles) { const td = S.tiles[key]; if (!td.dig) continue; const dd = key.split(','), pp = h2p(+dd[0], +dd[1]), fr = td.dig.progress / td.dig.need;
         ctx.strokeStyle = 'rgba(0,0,0,.5)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(pp.x, pp.y, 10, 0, 7); ctx.stroke();
         ctx.strokeStyle = 'rgba(255,190,50,.95)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(pp.x, pp.y, 10, -Math.PI / 2, -Math.PI / 2 + fr * 6.2832); ctx.stroke();
         ctx.fillStyle = 'rgba(255,190,50,.9)'; ctx.font = '8px system-ui'; ctx.textAlign = 'center'; ctx.fillText('挖掘', pp.x, pp.y - 13);
       }
-      // 全图散布标记（照 地下蚁国）：威胁红“！” / 面包虫·鼠妇绿“？” / 食物黄色碎屑
+      // 土上的散点标记（照 地下蚁国）：威胁红“！” / 面包虫鼠妇绿“？” / 食物“食”
       if (S.buried) for (const bk in S.buried) {
         const bb = S.buried[bk], bd = bk.split(','), bp = h2p(+bd[0], +bd[1]);
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         if (bb.enemy) {
-          if (isThreat(bb.enemy)) {
-            ctx.fillStyle = 'rgba(235,55,42,.35)'; ctx.beginPath(); ctx.arc(bp.x, bp.y, 11, 0, 7); ctx.fill();
-            ctx.fillStyle = '#e5372b'; ctx.font = 'bold 20px system-ui'; ctx.fillText('!', bp.x, bp.y + 1);
-          } else {
-            ctx.strokeStyle = '#5fd05f'; ctx.lineWidth = 2.4; ctx.lineCap = 'round';
-            ctx.beginPath(); ctx.moveTo(bp.x - 6, bp.y + 3); ctx.bezierCurveTo(bp.x - 5, bp.y - 5, bp.x + 1, bp.y + 5, bp.x + 6, bp.y - 3); ctx.stroke(); ctx.lineCap = 'butt';
-          }
-        } else if (bb.food) {
-          ctx.fillStyle = '#d8a840';
-          ctx.beginPath(); ctx.arc(bp.x - 4, bp.y - 3, 2.6, 0, 7); ctx.fill();
-          ctx.beginPath(); ctx.arc(bp.x + 3, bp.y + 1, 2.4, 0, 7); ctx.fill();
-          ctx.beginPath(); ctx.arc(bp.x - 1, bp.y + 4, 2.2, 0, 7); ctx.fill();
-        }
+          if (isThreat(bb.enemy)) { ctx.fillStyle = 'rgba(235,55,42,.95)'; ctx.font = 'bold 16px system-ui'; ctx.fillText('!', bp.x, bp.y); }
+          else { ctx.fillStyle = 'rgba(96,205,96,.95)'; ctx.font = 'bold 15px system-ui'; ctx.fillText('?', bp.x, bp.y); }
+        } else if (bb.food) { ctx.fillStyle = 'rgba(228,182,92,.9)'; ctx.font = 'bold 13px system-ui'; ctx.fillText('食', bp.x, bp.y); }
         ctx.textBaseline = 'alphabetic';
       }
       // 蛛丝洞穴
@@ -1788,10 +1788,6 @@ body{
     ctx.fillText('蚁后 ❤ ' + Math.max(0, Math.ceil(S.queenHp)) + '  ·  升级点数 ' + (levelColonyPoints() - (S.pointsSpent || 0)) + (S.win ? '  ·  ✅ 已通关·继续游玩' : ''), LW / 2, 72);
     const bottomScrim = ctx.createLinearGradient(0, LH - 40, 0, LH); bottomScrim.addColorStop(0, 'rgba(0,0,0,0)'); bottomScrim.addColorStop(1, 'rgba(0,0,0,.6)');
     ctx.fillStyle = bottomScrim; ctx.fillRect(0, LH - 40, LW, 40);
-    if (S.lv.narration) {
-      ctx.fillStyle = 'rgba(205,190,160,.82)'; ctx.font = 'italic 11px system-ui'; ctx.textAlign = 'center';
-      ctx.fillText('旁白 · ' + S.lv.narration, LW / 2, LH - 34);
-    }
     if (buildMode && buildMode !== 'demolish' && buildMode !== 'dig') {
       ctx.fillStyle = 'rgba(232,214,170,.9)'; ctx.font = '11px system-ui';
       ctx.fillText('放置：' + BUILD[buildMode].name + '（点地图空位）', LW / 2, LH - 18);
@@ -1805,92 +1801,51 @@ body{
       ctx.fillStyle = 'rgba(190,230,150,.9)'; ctx.font = '11px system-ui';
       ctx.fillText('信息素：点地图为该队（' + 'ⅠⅡⅢⅣⅤ'[S.selSquad] + '）放信息素点', LW / 2, LH - 18);
     }
-    // 左下小地图（岩洞 + 标记 + 当前视野框）
-    drawMiniMap();
   }
 
-  function drawMiniMap() {
-    const mw = 120, mh = 96, mx = 6, my = LH - mh - 6;
-    ctx.fillStyle = 'rgba(8,6,4,.86)'; ctx.fillRect(mx, my, mw, mh);
-    ctx.strokeStyle = 'rgba(120,100,70,.55)'; ctx.lineWidth = 1; ctx.strokeRect(mx + 0.5, my + 0.5, mw - 1, mh - 1);
-    const worldR = LEVEL_RADIUS * HEX * 1.732 + HEX;
-    const sc = Math.min(mw * 0.9 / (2 * worldR), mh * 0.9 / (2 * worldR));
-    const toMM = (wx, wy) => [mx + mw / 2 + wx * sc, my + mh / 2 + wy * sc];
-    if (S.soil) {
-      for (let q = -LEVEL_RADIUS; q <= LEVEL_RADIUS; q++)
-        for (let r = Math.max(-LEVEL_RADIUS, -q - LEVEL_RADIUS); r <= Math.min(LEVEL_RADIUS, -q + LEVEL_RADIUS); r++) {
-          if (!S.soil(q, r)) continue;
-          const p = h2p(q, r), M = toMM(p.x, p.y);
-          const t = S.tiles[hkey(q, r)];
-          ctx.fillStyle = (t && t.type !== 'dirt') ? 'rgba(70,58,40,.95)' : 'rgba(130,118,96,.55)';
-          ctx.fillRect(M[0] - 1.5, M[1] - 1.5, 3, 3);
-        }
-    }
-    if (S.buried) for (const bk in S.buried) {
-      const b = S.buried[bk], P = bk.split(',').map(Number), M = toMM(h2p(P[0], P[1]).x, h2p(P[0], P[1]).y);
-      ctx.fillStyle = b.enemy ? (isThreat(b.enemy) ? '#e5372b' : '#5fd05f') : '#d8a840';
-      ctx.fillRect(M[0] - 1, M[1] - 1, 2, 2);
-    }
-    const N = toMM(0, 0);
-    ctx.fillStyle = '#e0b040'; ctx.beginPath(); ctx.arc(N[0], N[1], 2.6, 0, 7); ctx.fill();
-    const cs = [[0, 0], [LW, 0], [0, LH], [LW, LH]].map(P => toMM(s2w(P[0], P[1]).x, s2w(P[0], P[1]).y));
-    ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = 1.2;
-    ctx.beginPath(); cs.forEach((P, i) => (i ? ctx.lineTo(P[0], P[1]) : ctx.moveTo(P[0], P[1]))); ctx.closePath(); ctx.stroke();
-  }
-
-  function drawHexGrid(tiles, radius, isHome, soilFn) {
-    const s = HEX;   // 无缝拼接的岩地（blob 不规则→不是大六边形）
-    const rockFill = (q, r) => { const v = ((q * 53 + r * 97) % 7 + 7) % 7; return 'rgb(' + (104 + v * 4) + ',' + (98 + v * 4) + ',' + (84 + v * 3) + ')'; };
-    // 逐格：岩（灰色、略大→相邻无缝合并成岩块）/ 通道（黑洞）/ 建筑
+  function drawHexGrid(tiles, radius, isHome) {
+    const s = HEX * 0.98;
+    const soilFill = (q, r) => { const v = ((q * 53 + r * 97) % 7 + 7) % 7; return 'rgb(' + (92 + v * 4) + ',' + (66 + v * 3) + ',' + (40 + v * 2) + ')'; };
+    const roomFill = (t) => { if (t.type === 'queen') return '#2c2414'; if (t.type === 'tunnel') return '#0f0a05'; if (t.type === 'worker') return '#28321c'; if (t.type === 'soldier') return '#301a13'; if (t.type === 'storage') return '#2e2818'; if (t.type === 'speed') return '#263430'; return '#1a120a'; };
+    // 逐格画正六边形（土格=棕 / 已挖·建筑=深色）
     for (let q = -radius; q <= radius; q++) {
       for (let r = Math.max(-radius, -q - radius); r <= Math.min(radius, -q + radius); r++) {
         const key = hkey(q, r);
         const t = tiles[key];
-        const dug = t && t.type !== 'dirt';
-        if (!dug && !(soilFn && soilFn(q, r))) continue;   // 虚空（洞外）不画 → 黑底
         const p = h2p(q, r);
-        const isRock = !dug, isTun = dug && t.type === 'tunnel', isNest = dug && t.type === 'queen';
-        ctx.fillStyle = isRock ? rockFill(q, r) : (isTun ? '#141009' : (isNest ? '#0e0b07' : rockFill(q, r)));
-        hexPath(p.x, p.y, s); ctx.fill();   // 无缝拼岩地（相邻同色→连续岩面）
-        // 每格一条横向细岩纹（仿岩/腐木，很淡）
-        if (isRock) { ctx.strokeStyle = 'rgba(0,0,0,.09)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(p.x - s * 0.72, p.y + 2); ctx.lineTo(p.x + s * 0.72, p.y + 2); ctx.stroke(); }
-        // 建筑/孵化
-        if (dug && !isNest && !isTun) {
-          if ((t.type === 'worker' || t.type === 'soldier') && t.hatch && t.hatch.stage !== 'active') { drawHatchStage(p.x, p.y, t, HEX); }
-          else {
-            ctx.globalAlpha = .9; ctx.font = (HEX * 0.55) + 'px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        hexPath(p.x, p.y, s);
+        ctx.fillStyle = (!t || t.type === 'dirt') ? soilFill(q, r) : roomFill(t);
+        ctx.fill();
+        if (t && t.type !== 'dirt') {
+          if (t.type === 'queen') { drawQueen(p.x, p.y, HEX); }
+          else if ((t.type === 'worker' || t.type === 'soldier') && t.hatch && t.hatch.stage !== 'active') { drawHatchStage(p.x, p.y, t, HEX); }
+          else if (t.type !== 'tunnel') {
+            ctx.globalAlpha = .9; ctx.font = (HEX * 0.6) + 'px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
             ctx.fillStyle = '#d8c29a'; ctx.fillText(BUILD[t.type].icon, p.x, p.y); ctx.globalAlpha = 1; ctx.textBaseline = 'alphabetic';
-            if (t.level > 1) { ctx.fillStyle = '#c9a84a'; ctx.font = (HEX * 0.22) + 'px system-ui'; ctx.fillText('Lv' + t.level, p.x, p.y + HEX * 0.5); }
+            if (t.level > 1) { ctx.fillStyle = '#c9a84a'; ctx.font = (HEX * 0.24) + 'px system-ui'; ctx.fillText('Lv' + t.level, p.x, p.y + HEX * 0.55); }
           }
         }
       }
     }
-    // 蚁后巢（detailed 洞穴：更大开口 + 蛛网 + 食物碎屑 + 大蚁后）
-    if (tiles[hkey(0, 0)] && tiles[hkey(0, 0)].type === 'queen') {
-      const np = h2p(0, 0);
-      ctx.fillStyle = '#0c0906'; ctx.beginPath(); ctx.ellipse(np.x, np.y, HEX * 3.4, HEX * 2.7, 0, 0, 7); ctx.fill();
-      ctx.strokeStyle = 'rgba(140,120,80,.45)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.ellipse(np.x, np.y, HEX * 3.4, HEX * 2.7, 0, 0, 7); ctx.stroke();
-      for (const [wx, wy] of [[-HEX * 2.5, -HEX * 1.9], [HEX * 2.5, -HEX * 1.5]]) {
-        ctx.strokeStyle = 'rgba(215,215,230,.3)'; ctx.lineWidth = 1;
-        for (let i = 0; i < 5; i++) { ctx.beginPath(); ctx.arc(wx, wy, 3 + i * 4, 0, 7); ctx.stroke(); }
-        for (let i = 0; i < 6; i++) { const a = i / 6 * 6.283; ctx.beginPath(); ctx.moveTo(wx, wy); ctx.lineTo(wx + Math.cos(a) * 22, wy + Math.sin(a) * 22); ctx.stroke(); }
-      }
-      ctx.fillStyle = '#c99a3a';
-      for (let i = 0; i < 9; i++) { const a = i * 1.9, rr = HEX * (0.7 + (i % 3) * 0.6); ctx.beginPath(); ctx.arc(np.x + Math.cos(a) * rr, np.y + Math.sin(a) * rr * 0.7, 2.3, 0, 7); ctx.fill(); }
-      drawQueen(np.x, np.y, HEX * 1.6);
+    // 正六边形格缝（深色细线）
+    ctx.strokeStyle = 'rgba(0,0,0,.3)'; ctx.lineWidth = 1;
+    for (let q = -radius; q <= radius; q++) {
+      for (let r = Math.max(-radius, -q - radius); r <= Math.min(radius, -q + radius); r++) { const p = h2p(q, r); hexPath(p.x, p.y, s); ctx.stroke(); }
     }
-    // 挖地道模式：可挖前线 → 黄色六边形（照 地下蚁国 的挖光标）
-    if (!isHome && buildMode === 'dig' && soilFn) {
+    // 挖地道模式：在“可挖前线”（挨着已挖空的土格）画提示，未打通的不提示
+    if (!isHome && buildMode === 'dig') {
       for (let q = -radius; q <= radius; q++) {
         for (let r = Math.max(-radius, -q - radius); r <= Math.min(radius, -q + radius); r++) {
-          const t2 = tiles[hkey(q, r)];
-          if (t2 && t2.type !== 'dirt') continue;
-          if (!soilFn(q, r)) continue;
-          let fr = false; for (const [dq, dr] of DIRS) { const nt = tiles[hkey(q + dq, r + dr)]; if (nt && nt.type !== 'dirt') { fr = true; break; } }
+          const t2 = tiles[hkey(q, r)]; if (t2 && t2.type !== 'dirt') continue;
+          let fr = false;
+          for (const [dq, dr] of DIRS) { const nt = tiles[hkey(q + dq, r + dr)]; if (nt && nt.type !== 'dirt') { fr = true; break; } }
           if (!fr) continue;
           const p2 = h2p(q, r);
-          ctx.fillStyle = 'rgba(226,206,96,.22)'; hexPath(p2.x, p2.y, s * 0.92); ctx.fill();
-          ctx.strokeStyle = 'rgba(232,214,120,.9)'; ctx.lineWidth = 1.6; hexPath(p2.x, p2.y, s * 0.92); ctx.stroke();
+          ctx.fillStyle = 'rgba(255,190,90,.22)'; hexPath(p2.x, p2.y, s * 0.9); ctx.fill();
+          ctx.strokeStyle = 'rgba(255,215,140,.95)'; ctx.lineWidth = 2; ctx.setLineDash([5, 3]);
+          hexPath(p2.x, p2.y, s * 0.82); ctx.stroke(); ctx.setLineDash([]);
+          ctx.fillStyle = 'rgba(255,224,160,.95)'; ctx.font = (HEX * 0.5) + 'px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.fillText('⛏', p2.x, p2.y); ctx.textBaseline = 'alphabetic';
         }
       }
     }
