@@ -1,0 +1,68 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+body{background:#0d1116;margin:0;font:12px system-ui;color:#cfd6dd}
+#hd{padding:8px 12px}
+canvas{display:block;background:#0d1116}
+</style></head><body><div id="hd"></div><canvas id="c" width="1200" height="1200"></canvas>
+<script src="maps/level-1-1.js?v=45"></script><script src="maps/level-1-2.js?v=45"></script><script src="maps/level-2-1.js?v=45"></script><script src="maps/level-2-2.js?v=45"></script><script>
+function hdist(q,r){return (Math.abs(q)+Math.abs(r)+Math.abs(q+r))/2;}
+const SQ3=Math.sqrt(3);
+function h2p(q,r,HEX){return {x:HEX*SQ3*(q+r/2), y:HEX*1.5*r};}
+function hex(g,x,y,s){g.beginPath();for(let i=0;i<6;i++){const a=Math.PI/180*(60*i-30);const px=x+s*Math.cos(a),py=y+s*Math.sin(a);i?g.lineTo(px,py):g.moveTo(px,py);}g.closePath();}
+// 与引擎一致：蚁后落点 = Q 质心（无 Q 取矩形中心）；(i,j)→(j-colQ, i-rowQ)；空格/超行长 = void 不画
+function cellsOf(layout){
+  const R=layout.length, C=Math.max(...layout.map(r=>r.length));
+  let si=0,sj=0,sq=0;
+  for(let i=0;i<R;i++)for(let j=0;j<layout[i].length;j++)if(layout[i][j]==='Q'){si+=i;sj+=j;sq++;}
+  const rowQ=sq?Math.round(si/sq):Math.floor(R/2), colQ=sq?Math.round(sj/sq):Math.floor(C/2);
+  const cells=[]; let minQ=1e9,maxQ=-1e9,minR=1e9,maxR=-1e9;
+  for(let i=0;i<R;i++)for(let j=0;j<layout[i].length;j++){
+    if(layout[i][j]===' ')continue;
+    const q=j-colQ, r=i-rowQ;
+    cells.push([q,r,layout[i][j]]);
+    if(q<minQ)minQ=q; if(q>maxQ)maxQ=q; if(r<minR)minR=r; if(r>maxR)maxR=r;
+  }
+  return {cells,minQ,maxQ,minR,maxR};
+}
+function draw(g, layout, cx, cy, cellSize, title) {
+  const {cells}=cellsOf(layout);
+  // 真实像素包围盒（轴向斜放：x=SQ3*(q+r/2), y=1.5r，HEX=1 时的格心范围）
+  let minPx=1e9,maxPx=-1e9,minPy=1e9,maxPy=-1e9;
+  for(const [q,r] of cells){ const px=SQ3*(q+r/2), py=1.5*r; if(px<minPx)minPx=px; if(px>maxPx)maxPx=px; if(py<minPy)minPy=py; if(py>maxPy)maxPy=py; }
+  const bw=(maxPx-minPx+2), bh=(maxPy-minPy+2);   // +2 留边
+  const HEX=Math.min(cellSize/bw, cellSize/bh)*0.94;
+  const offX=-(minPx+maxPx)/2*HEX, offY=-(minPy+maxPy)/2*HEX;
+  for(const [q,r,ch] of cells){
+    const p=h2p(q,r,HEX), x=cx+p.x+offX, y=cy+p.y+offY;
+    if(ch==='#'){ g.fillStyle='#4a5560'; hex(g,x,y,HEX*0.98); g.fill();
+      const h1=((q*73+r*151)%5+5)%5; g.fillStyle='rgba(0,0,0,.3)';
+      g.beginPath();g.arc(x-HEX*0.28+(h1%3)*HEX*0.2,y+HEX*0.12,HEX*0.09,0,7);g.fill();
+      g.beginPath();g.arc(x+HEX*0.24,y-HEX*0.2+(h1%2)*HEX*0.3,HEX*0.06,0,7);g.fill();
+    } else { g.fillStyle = ch==='l' ? '#4a4234' : '#6b5230'; hex(g,x,y,HEX*0.98); g.fill(); }
+    g.strokeStyle='rgba(0,0,0,.35)'; g.lineWidth=1; hex(g,x,y,HEX*0.98); g.stroke();
+    if(HEX>=9){
+      if(ch==='Q'){ g.fillStyle='#37c04a'; hex(g,x,y,HEX*0.5); g.fill(); }
+      else if('sBb'.includes(ch)){ g.fillStyle='#e3372a'; g.beginPath();g.arc(x,y,ch==='B'?HEX*0.42:HEX*0.3,0,7);g.fill(); }
+      else if(ch==='w'||ch==='u'){ g.fillStyle='#60cd60'; g.font='bold '+(HEX*0.7)+'px system-ui'; g.textAlign='center'; g.textBaseline='middle'; g.fillText('?',x,y); }
+      else if(ch==='f'){ g.fillStyle='#e4b65c'; g.beginPath();g.arc(x,y,HEX*0.22,0,7);g.fill(); }
+      else if(ch==='l'){ g.strokeStyle='#5fd0e0'; g.lineWidth=1.6; g.setLineDash([4,3]); hex(g,x,y,HEX*0.62); g.stroke(); g.setLineDash([]);
+        g.fillStyle='#5fd0e0'; g.font='bold '+(HEX*0.5)+'px system-ui'; g.textAlign='center'; g.textBaseline='middle'; g.fillText('◇',x,y); g.textBaseline='alphabetic'; }
+    }
+  }
+  g.fillStyle='#dfe6ee'; g.font='bold 18px system-ui'; g.textAlign='left'; g.textBaseline='alphabetic';
+  g.fillText(title, cx-cellSize/2+8, cy-cellSize/2+18);
+}
+window.addEventListener('load',()=>{
+  const g=document.getElementById('c').getContext('2d');
+  const W=1200,H=1200,cw=W/2,ch=H/2;
+  draw(g, window.ANT_MAPS['1-1'].layout, cw/2, ch/2, cw, '1.1 开掘');
+  draw(g, window.ANT_MAPS['1-2'].layout, W-cw/2, ch/2, cw, '1.2 清剿');
+  draw(g, window.ANT_MAPS['2-1'].layout, cw/2, ch+ch/2, cw, '2.1 登上地表');
+  draw(g, window.ANT_MAPS['2-2'].layout, W-cw/2, ch+ch/2, cw, '2.2 地表清剿');
+  const info=Object.keys(window.ANT_MAPS).map(id=>{
+    const L=window.ANT_MAPS[id].layout;
+    return id+'='+L.length+'行×'+Math.max(...L.map(r=>r.length))+'列(蚁后@Q质心)';
+  }).join('  ');
+  document.getElementById('hd').textContent='地图预览（与引擎同一套格心/蚁后质心/void 规则）：'+info+'；改图后先跑 node check-maps.js';
+  document.title='maps-ok';
+});
+</script></body></html>

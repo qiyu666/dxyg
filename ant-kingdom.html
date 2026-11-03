@@ -228,6 +228,172 @@ body{
     <div id="bottom-content"></div>
   </nav>
 </div>
+
+<script>
+/* ============================================================
+ * 地图 1.1 · 第一章 第一关「开掘」专属地下地图
+ * 圆润钻石形土体，外圈灰色基岩环；蚁后居中；
+ * 红色敌人成团（左上/右上/中/下方），中圈一圈食物，面包虫/鼠妇散落。
+ *
+ * 15×15 网格（第 8 行第 8 列 = 蚁后中心），字符含义：
+ *   # 基岩（不可挖）   . 土（可挖）
+ *   s 蜘蛛  b 甲虫  B 成年甲虫（埋藏敌人，挖到才钻出）
+ *   w 面包虫  u 鼠妇（不攻击、可吃的资源，埋藏）
+ *   f 泥土食物（埋藏）
+ *   Q 蚁后巢（7 格，游戏启动时固定生成，无需在此放置）
+ * ============================================================ */
+window.ANT_MAPS = window.ANT_MAPS || {};
+window.ANT_MAPS['1-1'] = {
+  layout: [
+    '###############################',
+    '#..................................#',
+    '#..................................#',
+    '#..................................#',
+    '#..................................#',
+    '#..................................#',
+    '#..................................#',
+    '#..................................#',
+    '#..................................#',
+    '#..................................#',
+    '#..................................#',
+    '#..................................#',
+    '#..................................#',
+    '#..................................#',
+    '#..................................#',
+    '#..................................#',
+    '#..................................#',
+    '#..................................#',
+    '#..................................#',
+    '#........lllllll....................#',
+    '#........lwbbwwl.....................#',
+    '#........lllllll....................#',
+    '#..................................#',
+    '#..................................#',
+    '#.....www.....QQ....ww.......ww....#',
+    '#www..ww.....QQQ...ww.........w....#',
+    '#www...........QQ..................#',
+    '#..................................#',
+    '#..................................#',
+    '#.....................www..........#',
+    '#......................ww..........#',
+    '#.........ww.......................#',
+    '#.........bbb...............bbwbb....#',
+    '#............................ww....#',
+    '###############################',
+  ],
+};
+</script>
+
+<script>
+/* ============================================================
+ * 地图 1.2 · 第一章 第二关「清剿」专属地下地图
+ * 地形更长、边缘带基岩“牙齿”，土体里还嵌几块孤立基岩岛；
+ * 敌人比 1.1 更多更散，食物与面包虫/鼠妇穿插。
+ *
+ * 15×15 网格（第 8 行第 8 列 = 蚁后中心），字符含义：
+ *   # 基岩（不可挖）   . 土（可挖）
+ *   s 蜘蛛  b 甲虫  B 成年甲虫（埋藏敌人，挖到才钻出）
+ *   w 面包虫  u 鼠妇（不攻击、可吃的资源，埋藏）
+ *   f 泥土食物（埋藏）
+ *   Q 蚁后巢（7 格，游戏启动时固定生成，无需在此放置）
+ * ============================================================ */
+window.ANT_MAPS = window.ANT_MAPS || {};
+window.ANT_MAPS['1-2'] = {
+  layout: [
+    '       #..s..##',
+    '      #..b..B.#',
+    '     #.s...f..#',
+    '    #.b..#..b.#',
+    '   #.s..w..B..#',
+    '  #.b..f.b..#.#',
+    ' #.s...QQ.f...#',
+    '#.u.B.QQQ..f..#',
+    '#..b..QQ.wf..#',
+    '##.s..#.b..f.',
+    '###.b.w.B.##',
+    '####.s.f.b.',
+    '####.b.B.#',
+    '#####.sf.',
+    '####wb.#'
+  ],
+};
+
+</script>
+
+<script>
+/* ============================================================
+ * 地图 2.1 · 第二章 第一关「登上地表」专属地下地图
+ * 纵向洞道形（上下窄、中段宽），顶部留出空间给上爬的竖井；
+ * 敌人少、食物/面包虫多，便于造孵化室并冲出地表。
+ * （地表层与竖井由游戏按本关 surface 参数生成，不在此文件。）
+ *
+ * 15×15 网格（第 8 行第 8 列 = 蚁后中心），字符含义：
+ *   # 基岩（不可挖）   . 土（可挖）
+ *   s 蜘蛛  b 甲虫  B 成年甲虫（埋藏敌人，挖到才钻出）
+ *   w 面包虫  u 鼠妇（不攻击、可吃的资源，埋藏）
+ *   f 泥土食物（埋藏）
+ *   Q 蚁后巢（7 格，游戏启动时固定生成，无需在此放置）
+ * ============================================================ */
+window.ANT_MAPS = window.ANT_MAPS || {};
+window.ANT_MAPS['2-1'] = {
+  layout: [
+    '       ##...###',
+    '      ##..f..##',
+    '     ###.f...##',
+    '    ###.w.....#',
+    '   ####...b..##',
+    '  ####.f...s.##',
+    ' ####.fQQ...u.#',
+    '####s.QQQ...b.#',
+    '####..QQ.fw...',
+    '#####...f..b.',
+    '#####..B....',
+    '######..f..',
+    '######..u.',
+    '#######f.',
+    '#######.'
+  ],
+};
+
+</script>
+
+<script>
+/* ============================================================
+ * 地图 2.2 · 第二章 第二关「地表清剿」专属地下地图
+ * 中央大洞 + 四周基岩拱形，食物铺得最开，敌人中等；
+ * 为地表清剿储备资源。
+ * （地表层与竖井由游戏按本关 surface 参数生成，不在此文件。）
+ *
+ * 15×15 网格（第 8 行第 8 列 = 蚁后中心），字符含义：
+ *   # 基岩（不可挖）   . 土（可挖）
+ *   s 蜘蛛  b 甲虫  B 成年甲虫（埋藏敌人，挖到才钻出）
+ *   w 面包虫  u 鼠妇（不攻击、可吃的资源，埋藏）
+ *   f 泥土食物（埋藏）
+ *   Q 蚁后巢（7 格，游戏启动时固定生成，无需在此放置）
+ * ============================================================ */
+window.ANT_MAPS = window.ANT_MAPS || {};
+window.ANT_MAPS['2-2'] = {
+  layout: [
+    '       #.f..b##',
+    '      #.s..f..#',
+    '     #.b..w..B#',
+    '    #.f..b..b.#',
+    '   #.s..f..B.u#',
+    '  #.f..b..w.f.#',
+    ' #.B...QQ#.b..#',
+    '#.f..sQQQB..b.#',
+    '#...w.QQf..u.#',
+    '##...b#.f..B.',
+    '###.f..b.s..',
+    '####.B#.f.b',
+    '####..w.f.',
+    '#####.bf.',
+    '#####sf#'
+  ],
+};
+
+</script>
+
 <script>
 /* =========================================================
    地下蚁国 · Ant Kingdom  (v3 - 家 / 六边形 / 信息素队伍)
@@ -266,15 +432,15 @@ body{
   function upgradeReq(nextLevel) { return nextLevel === 2 ? 6 : 12; }
 
   const LEVELS = [
-    // 第一章 · 地下（照 地下蚁国 1.1/1.2：威胁 + 资源同在一关；面包虫/鼠妇不攻击、是可吃的资源）
-    { chapter: '第一章 · 地下', name: '第一关', sub: '开掘', desc: '消灭附近的威胁昆虫；土里还埋着面包虫/鼠妇和食物（不攻击，可吃）。', kind: 'clear', surface: false,
-      buriedKinds: ['spider', 'beetle', 'mealworm', 'mealworm', 'sowbug', 'sowbug'], buriedFood: 8, foodAmount: 30, foodRate: 12, foodMax: 24 },
-    { chapter: '第一章 · 地下', name: '第二关', sub: '清剿', desc: '威胁更多，全部清掉；资源（面包虫/鼠妇/食物）也都在土里。', kind: 'clear', surface: false,
+    // 每关一张专属地图（maps/ 目录，按 mapId 加载）：基岩 + 定点埋藏；地图缺失时回退到随机埋入（buriedKinds/buriedFood）
+    { chapter: '第一章 · 地下', name: '第一关', sub: '开掘', desc: '消灭威胁昆虫；面包虫/鼠妇和食物埋在土里（不攻击，可吃）；灰色基岩挖不动。', kind: 'clear', surface: false, mapId: '1-1',
+      foodAmount: 30, foodRate: 12, foodMax: 24 },
+    { chapter: '第一章 · 地下', name: '第二关', sub: '清剿', desc: '威胁更多，全部清掉；资源（面包虫/鼠妇/食物）也都在土里。', kind: 'clear', surface: false, mapId: '1-2',
       buriedKinds: ['spider', 'spider', 'beetle', 'beetle', 'adultBeetle', 'mealworm', 'sowbug', 'sowbug'], buriedFood: 10, foodAmount: 30, foodRate: 12, foodMax: 24 },
     // 第二章 · 冲出地表（引入地表层）
-    { chapter: '第二章 · 冲出地表', name: '第一关', sub: '登上地表', desc: '打通竖井爬上地表，采集 30 食物。', kind: 'surface', surface: true, forageGoal: 30, surfBugs: ['beetle', 'spider'],
+    { chapter: '第二章 · 冲出地表', name: '第一关', sub: '登上地表', desc: '打通竖井爬上地表，采集 30 食物。', kind: 'surface', surface: true, mapId: '2-1', forageGoal: 30, surfBugs: ['beetle', 'spider'],
       buriedKinds: [], buriedFood: 4, foodAmount: 30, foodRate: 12, foodMax: 20 },
-    { chapter: '第二章 · 冲出地表', name: '第二关', sub: '地表清剿', desc: '清剿全部地表昆虫，并采集 40 食物。', kind: 'surface', surface: true, forageGoal: 40, clearBugs: true, raid: true, surfBugs: ['spider', 'spider', 'beetle', 'beetle'],
+    { chapter: '第二章 · 冲出地表', name: '第二关', sub: '地表清剿', desc: '清剿全部地表昆虫，并采集 40 食物。', kind: 'surface', surface: true, mapId: '2-2', forageGoal: 40, clearBugs: true, raid: true, surfBugs: ['spider', 'spider', 'beetle', 'beetle'],
       buriedKinds: [], buriedFood: 4, foodAmount: 30, foodRate: 12, foodMax: 20 },
   ];
   const CHAPTERS = Array.from(new Set(LEVELS.map(l => l.chapter)));
@@ -429,6 +595,121 @@ body{
     for (let i = 0; i < foodN; i++) put({ food: foodAmt });
   }
 
+  // 固定布局关：# 基岩 / s b B 埋敌人 / w u 面包虫鼠妇 / f 泥土食物；' '=void(无格)；Q 只作蚁后落点参考。
+  // layout 来自 maps/ 里该关专属地图文件（window.ANT_MAPS[mapId].layout）。
+  // 世界仍以蚁后(0,0)为中心：蚁后落点 = 所有 Q 的质心（无 Q 则取矩形中心）；(i,j) → (j-colQ, i-rowQ)。
+  // 行可不等长（j≥行长的格子 = void）；地图实际格子集合存入 st.mapCells（无地图时保持六边形回退）。
+  function plantLayout(st, layout) {
+    st.buried = {};
+    const foodAmt = (st.lv && st.lv.foodAmount) || 30;
+    const R = layout.length;
+    // 蚁后质心（Q 格平均）
+    let si = 0, sj = 0, sq = 0;
+    for (let i = 0; i < R; i++) for (let j = 0; j < layout[i].length; j++) if (layout[i][j] === 'Q') { si += i; sj += j; sq++; }
+    const rowQ = sq ? Math.round(si / sq) : Math.floor(R / 2);
+    const colQ = sq ? Math.round(sj / sq) : Math.floor(Math.max(...layout.map(r => r.length)) / 2);
+    st.mapCells = new Set();
+    let rad = 0;
+    const lKeys = [];
+    for (let i = 0; i < R; i++) {
+      const row = layout[i];
+      for (let j = 0; j < row.length; j++) {
+        const ch = row[j];
+        if (ch === ' ') continue;                       // void：无格
+        const q = j - colQ, r = i - rowQ;
+        const key = hkey(q, r);
+        st.mapCells.add(key);
+        if (ch === '#') st.tiles[key] = { type: 'rock' };
+        else if (ch === 's') st.buried[key] = { enemy: 'spider' };
+        else if (ch === 'b') st.buried[key] = { enemy: 'beetle' };
+        else if (ch === 'B') st.buried[key] = { enemy: 'adultBeetle' };
+        else if (ch === 'w') st.buried[key] = { enemy: 'mealworm' };
+        else if (ch === 'u') st.buried[key] = { enemy: 'sowbug' };
+        else if (ch === 'f') st.buried[key] = { food: foodAmt };
+        else if (ch === 'l') lKeys.push(key);            // 空室：可挖土格，记为室界
+        // '.'=土不建 tile；'Q'=蚁后落点参考（makeQueenTiles 在 (0,0) 建 7 格）
+        const d = hdist(q, r, 0, 0); if (d > rad) rad = d;
+      }
+    }
+    st.radius = Math.max(rad, 1);   // 视图适配/边缘逻辑用（取地图最大半径）
+    if (lKeys.length) buildChambers(st, lKeys);
+  }
+
+  // 空室（l）：l 格连通成室；挖到任一 l 格→该室的 l 格 + 被围内部（土/埋藏）一次全开成通道、埋藏释放。
+  // 被围内部 = 非 l 非基岩的地图格中，无法不穿 l/基岩 从“地图外(邻 void)”走到 的那部分。
+  function buildChambers(st, lKeys) {
+    const isCell = st.mapCells, isL = new Set(lKeys);
+    const isRock = (k) => st.tiles[k] && st.tiles[k].type === 'rock';
+    const neigh = (k) => { const p = k.split(','), q = +p[0], r = +p[1], out = [];
+      for (const [dq, dr] of DIRS) { const nk = hkey(q + dq, r + dr); if (isCell.has(nk)) out.push(nk); } return out; };
+    // 1) 被围内部：从“邻 void 的非 l 非岩格”泛洪（只穿非 l 非岩格）；未达到的非 l 非岩格 = 被围
+    const reachable = new Set(); const seeds = [];
+    for (const k of isCell) {
+      if (isL.has(k) || isRock(k)) continue;
+      // “外圈土”：邻 void（地图外）或邻基岩 → 泛洪起点（开放区）
+      let outer = false;
+      { const p = k.split(','), q = +p[0], r = +p[1];
+        for (const [dq, dr] of DIRS) {
+          const nk = hkey(q + dq, r + dr);
+          if (!isCell.has(nk) || isRock(nk)) { outer = true; break; }
+        } }
+      if (outer) { reachable.add(k); seeds.push(k); }
+    }
+    while (seeds.length) {
+      const k = seeds.shift();
+      for (const nk of neigh(k)) { if (reachable.has(nk) || isL.has(nk) || isRock(nk)) continue; reachable.add(nk); seeds.push(nk); }
+    }
+    const enclosed = new Set();
+    for (const k of isCell) if (!isL.has(k) && !isRock(k) && !reachable.has(k)) enclosed.add(k);
+    // 2) 室 = l 的 6 连通块；只记录“被围内部”（不含 l 环本身）；挖到某 l 格时只开 那个 l + 内部
+    st.chamberCell = {}; st.chamberInterior = {};
+    const comp = {}; let cid = 0;
+    for (const k of lKeys) {
+      if (comp[k] !== undefined) continue;
+      const stack = [k]; comp[k] = cid; const members = [];
+      while (stack.length) { const c = stack.pop(); members.push(c);
+        for (const nk of neigh(c)) if (isL.has(nk) && comp[nk] === undefined) { comp[nk] = cid; stack.push(nk); } }
+      const interior = new Set(); const st2 = [...members];
+      while (st2.length) { const c = st2.pop();
+        for (const nk of neigh(c)) if (enclosed.has(nk) && !interior.has(nk)) { interior.add(nk); st2.push(nk); } }
+      st.chamberInterior[cid] = [...interior];
+      for (const m of members) st.chamberCell[m] = cid;
+      cid++;
+    }
+  }
+
+  // 挖到某 l 格 → 释放该空室：只开“被挖的那个 l + 被 l 围住的内部”（不把整圈 l 都爆），内部埋藏钻出；同一室只释放一次
+  function releaseChamber(Sq, key) {
+    const c = Sq.chamberCell && Sq.chamberCell[key];
+    if (c === undefined || !Sq.chamberInterior) return;
+    Sq.chamberReleased = Sq.chamberReleased || {};
+    if (Sq.chamberReleased[c]) return;
+    Sq.chamberReleased[c] = true;
+    const interior = Sq.chamberInterior[c] || [];
+    let opened = 0, foes = 0, foods = 0, res = 0;
+    for (const ck of [key, ...interior]) {
+      const t = Sq.tiles[ck];
+      if (t && (t.type === 'queen' || t.type === 'rock')) continue;   // 不盖蚁后/基岩
+      Sq.tiles[ck] = { type: 'tunnel', level: 1 };
+      opened++;
+      const b = Sq.buried[ck];
+      if (!b) continue;
+      delete Sq.buried[ck];
+      const p = h2p(+ck.split(',')[0], +ck.split(',')[1]);
+      if (b.enemy) { Sq.enemies.push(makeEnemy(b.enemy, p.x, p.y)); if (isThreat(b.enemy)) foes++; else res++; }
+      else if (b.food) { Sq.foods.push({ x: p.x, y: p.y, amount: b.food }); foods++; }
+    }
+    Sfx.dig();
+    toast('空室打开：' + opened + ' 格释放' + (foes ? ' · 钻出 ' + foes + ' 威胁' : '') + (res ? ' · ' + res + ' 面包虫/鼠妇' : '') + (foods ? ' · ' + foods + ' 食物' : ''), 1800);
+  }
+
+  // 该格是否属于本关地图（有专属地图 = mapCells；无地图回退六边形半径）
+  function inMapCell(Sq, q, r) {
+    if (!Sq) return false;
+    if (Sq.mapCells) return Sq.mapCells.has(hkey(q, r));
+    return inRadius(q, r, Sq.radius);
+  }
+
   // 挖掘到一格 → 露出埋藏的敌人/食物
   function revealTile(key) {
     const b = S.buried && S.buried[key];
@@ -448,11 +729,11 @@ body{
   // 前线泥土：本身无建筑且邻接已挖区域（玩家下一步能挖到的土）
   function isFrontierSoil(key) {
     const [q, r] = key.split(',').map(Number);
-    if (!inRadius(q, r, S.radius)) return false;
+    if (!inMapCell(S, q, r)) return false;
     const t = S.tiles[key];
     if (t && t.type !== 'dirt') return false;
     let adj = false;
-    for (const [dq, dr] of DIRS) { const nt = S.tiles[hkey(q + dq, r + dr)]; if (nt && nt.type !== 'dirt') { adj = true; break; } }
+    for (const [dq, dr] of DIRS) { const nt = S.tiles[hkey(q + dq, r + dr)]; if (nt && nt.type !== 'dirt' && nt.type !== 'rock') { adj = true; break; } }
     return adj;
   }
 
@@ -813,8 +1094,11 @@ body{
   // =========================================================
   function createLevel(idx) {
     const lv = LEVELS[idx];
+    const mapDef = (window.ANT_MAPS || {})[lv.mapId];
+    // 地图半径按专属地图文件自适应（奇数正方形 N×N → 半径 (N-1)/2）；无地图时用默认 7
+    const Rm = (mapDef && mapDef.layout && mapDef.layout[0]) ? Math.floor(mapDef.layout[0].length / 2) : LEVEL_RADIUS;
     const st = {
-      idx, lv, def: lv, radius: LEVEL_RADIUS, tiles: {},
+      idx, lv, def: lv, radius: Rm, tiles: {},
       food: 35, larva: 0, larvaTimer: 0,
       queenHp: 500, queenMax: 500,
       ants: [], enemies: [], foods: [], corpses: [], webs: [], buried: {},
@@ -834,7 +1118,9 @@ body{
     if (lv.surface) for (let i = 0; i < 4; i++) st.ants.push(makeAnt('soldier', qp.x + (Math.random() - 0.5) * 24, qp.y + (Math.random() - 0.5) * 24, 0));
     // 敌人不再开局就出在面上；埋进泥土，玩家挖掘才钻出（照 地下蚁国）
     if (lv.kind === 'expand') spawnLevel2(st);   // 扩建关：地面铺食物（便于造孵化室）
-    plantBuried(st);                              // 把静态敌人 + 泥土食物埋进土里
+    // 每关专属地图（maps/ 目录，按 mapId 加载）：基岩 + 定点埋藏；地图缺失时回退到随机埋入
+    if (mapDef && mapDef.layout) plantLayout(st, mapDef.layout);
+    else plantBuried(st);
     if (lv.surface) spawnSurface(st);              // ① 第二章：地表清地（食物 + 昆虫 + 竖井）
     return st;
   }
@@ -932,7 +1218,7 @@ body{
       const e = makeEnemy(k, SURF_C.x + (Math.random() - 0.5) * SURF_R, SURF_C.y + (Math.random() - 0.5) * SURF_R * 0.7);
       e.zone = 'surface'; st.enemies.push(e);
     }
-    st.shafts = { under: { x: SHAFT_U.x, y: SHAFT_U.y }, surface: { x: SHAFT_S.x, y: SHAFT_S.y } };
+    st.shafts = { under: { x: 0, y: -st.radius * 1.5 * HEX - 6 }, surface: { x: SHAFT_S.x, y: SHAFT_S.y } };
   }
 
   function checkSurfaceWin() {
@@ -993,7 +1279,7 @@ body{
     Sfx.resume();
     S = createLevel(idx);
     screen = 'level'; buildMode = null; selectedHomeTile = null;
-    hideOverlay(); fitMap(LEVEL_RADIUS); applyLayerView();
+    hideOverlay(); fitMap(S.radius); applyLayerView();
     showHUD(true); showBottom(true); showZoom(true);
     hud.larva.parentElement.style.display = '';
     refreshLevelHUD(); refreshBottom();
@@ -1107,10 +1393,11 @@ body{
   // 关卡建造/挖掘
   function levelBuildAt(q, r) {
     if (!buildMode) return false;
-    if (!inRadius(q, r, S.radius)) return false;
+    if (!inMapCell(S, q, r)) return false;
     const key = hkey(q, r);
     const t = S.tiles[key];
     if (t && t.type === 'queen') { toast('蚁后室不能覆盖'); return true; }
+    if (t && t.type === 'rock') { toast('基岩上不能建造'); return true; }
     if (!t || t.type === 'dirt') { toast('未挖的泥土不能直接建：先「挖地道」挖成通道，再在通道里建', 1800); return true; }
     if (t.type !== 'tunnel') { toast('这里已经有建筑'); return true; }
     const def = BUILD[buildMode];
@@ -1134,6 +1421,7 @@ body{
   }
   function demolishLevel(q, r) {
     const key = hkey(q, r), t = S.tiles[key]; if (!t) return;
+    if (t.type === 'rock') { toast('基岩拆不了'); return; }
     const def = BUILD[t.type];
     const refund = Math.round((def ? def.cost : 5) * 0.7);
     const p = h2p(q, r);
@@ -1147,17 +1435,19 @@ body{
   }
   // 暴露面判定：泥土格至少一条边挨着“已挖通道(tunnel)”或“蚁巢中心(queen)”才可挖
   function exposedFace(tiles, q, r) {
-    for (const [dq, dr] of DIRS) { const nt = tiles[hkey(q + dq, r + dr)]; if (nt && nt.type !== 'dirt') return true; }   // 已挖空间=任何已挖的格（通道/蚁巢/建筑）
+    for (const [dq, dr] of DIRS) { const nt = tiles[hkey(q + dq, r + dr)]; if (nt && nt.type !== 'dirt' && nt.type !== 'rock') return true; }   // 已挖空间=任何已挖的格（通道/蚁巢/建筑），基岩不算
     return false;
   }
   function levelDigAt(q, r) {
-    if (!inRadius(q, r, S.radius)) return;
+    if (!inMapCell(S, q, r)) return;
     const key = hkey(q, r);
     const t = S.tiles[key];
+    if (t && t.type === 'rock') { toast('基岩挖不动'); return; }
     if (t && t.type !== 'dirt') return;
     if (!exposedFace(S.tiles, q, r)) { toast('无暴露面：这块土没挨着已挖空间（通道/蚁巢/建筑），挖不了', 1600); return; }
     S.tiles[key] = { type: 'tunnel', level: 1 };
     revealTile(key);
+    if (S.chamberCell && S.chamberCell[key] !== undefined) releaseChamber(S, key);   // 挖到空室 l → 释放（id 0 也有效）
     Sfx.dig();
   }
 
@@ -1174,10 +1464,11 @@ body{
 
   // 工蚁挖掘：派一只工蚁过去，蹲在格子上把进度挖满才变通道
   function orderDigAt(q, r) {
-    if (!inRadius(q, r, S.radius)) return;
+    if (!inMapCell(S, q, r)) return;
     const key = hkey(q, r), t = S.tiles[key];
     if (t && t.type === 'queen') { toast('蚁后室不能挖'); return; }
     if (t && t.type === 'tunnel') { return; }   // 已挖通的通道无需再挖
+    if (t && t.type === 'rock') { toast('基岩挖不动'); return; }
     if (t && t.type !== 'dirt') { toast('这里已有建筑'); return; }
     if (!exposedFace(S.tiles, q, r)) { toast('无暴露面：这块土没挨着已挖空间（通道/蚁巢/建筑），挖不了', 1600); return; }
     S.tiles[key] = { type: 'dirt' };
@@ -1209,7 +1500,7 @@ body{
   // 关卡内的蚁群升级点数（算法同家）
   function levelColonyPoints() {
     let pts = 0; const seen = new Set();
-    const skip = (t) => !t || t.type === 'dirt' || t.type === 'tunnel' || t.type === 'queen';
+    const skip = (t) => !t || t.type === 'dirt' || t.type === 'tunnel' || t.type === 'queen' || t.type === 'rock';
     for (const key in S.tiles) {
       const t = S.tiles[key]; if (skip(t)) continue;
       const [q, r] = key.split(',').map(Number);
@@ -1227,7 +1518,7 @@ body{
 
   function openLevelUpgradePanel(q, r) {
     const t = S.tiles[hkey(q, r)];
-    if (!t || t.type === 'queen' || t.type === 'tunnel' || t.type === 'dirt') return;
+    if (!t || t.type === 'queen' || t.type === 'tunnel' || t.type === 'dirt' || t.type === 'rock') return;
     const def = BUILD[t.type];
     const gen = levelColonyPoints();
     const spent = S.pointsSpent || 0;
@@ -1397,6 +1688,7 @@ body{
               dt2.type = 'tunnel'; delete dt2.dig;
               for (const o of S.ants) if (o.digKey === dk) { o.digKey = null; o.digQ = null; o.digR = null; }
               revealTile(dk);   // 挖通→露出埋藏的敌人/食物
+              if (S.chamberCell && S.chamberCell[dk] !== undefined) releaseChamber(S, dk);   // 挖到空室 l → 释放（id 0 也有效）
               Sfx.dig();
             }
           }
@@ -1736,7 +2028,7 @@ body{
     const vz = S.viewLayer;                              // 'under' | 'surface'
     const inVz = (x, y) => (vz === 'surface' ? zoneOf(x, y) === 'surface' : zoneOf(x, y) === 'under');
     if (vz === 'under') {
-      drawHexGrid(S.tiles, LEVEL_RADIUS, false);
+      drawHexGrid(S.tiles, S.radius, false, S.mapCells);
       // 挖掘进度（工蚁正在挖的地道）
       for (const key in S.tiles) { const td = S.tiles[key]; if (!td.dig) continue; const dd = key.split(','), pp = h2p(+dd[0], +dd[1]), fr = td.dig.progress / td.dig.need;
         ctx.strokeStyle = 'rgba(0,0,0,.5)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(pp.x, pp.y, 10, 0, 7); ctx.stroke();
@@ -1838,48 +2130,55 @@ body{
     }
   }
 
-  function drawHexGrid(tiles, radius, isHome) {
+  function drawHexGrid(tiles, radius, isHome, cellSet) {
     const s = HEX * 0.98;
+    // 待画格子：有专属地图（cellSet）按实际格子；否则画 radius 六边形（家/无地图回退）
+    let cells;
+    if (cellSet) { cells = []; for (const k of cellSet) { const a = k.split(','); cells.push([+a[0], +a[1]]); } }
+    else {
+      cells = [];
+      for (let q = -radius; q <= radius; q++) for (let r = Math.max(-radius, -q - radius); r <= Math.min(radius, -q + radius); r++) cells.push([q, r]);
+    }
     const soilFill = (q, r) => { const v = ((q * 53 + r * 97) % 7 + 7) % 7; return 'rgb(' + (92 + v * 4) + ',' + (66 + v * 3) + ',' + (40 + v * 2) + ')'; };
-    const roomFill = (t) => { if (t.type === 'queen') return '#2c2414'; if (t.type === 'tunnel') return '#0f0a05'; if (t.type === 'worker') return '#28321c'; if (t.type === 'soldier') return '#301a13'; if (t.type === 'storage') return '#2e2818'; if (t.type === 'speed') return '#263430'; return '#1a120a'; };
+    const roomFill = (t) => { if (t.type === 'queen') return '#2c2414'; if (t.type === 'tunnel') return '#0f0a05'; if (t.type === 'worker') return '#28321c'; if (t.type === 'soldier') return '#301a13'; if (t.type === 'storage') return '#2e2818'; if (t.type === 'speed') return '#263430'; if (t.type === 'rock') return '#3a434c'; return '#1a120a'; };
     // 逐格画正六边形（土格=棕 / 已挖·建筑=深色）
-    for (let q = -radius; q <= radius; q++) {
-      for (let r = Math.max(-radius, -q - radius); r <= Math.min(radius, -q + radius); r++) {
-        const key = hkey(q, r);
-        const t = tiles[key];
-        const p = h2p(q, r);
-        hexPath(p.x, p.y, s);
-        ctx.fillStyle = (!t || t.type === 'dirt') ? soilFill(q, r) : roomFill(t);
-        ctx.fill();
-        if (t && t.type !== 'dirt') {
-          if (t.type === 'queen') { drawQueen(p.x, p.y, HEX); }
-          else if ((t.type === 'worker' || t.type === 'soldier') && t.hatch && t.hatch.stage !== 'active') { drawHatchStage(p.x, p.y, t, HEX); }
-          else if (t.type !== 'tunnel') {
-            ctx.globalAlpha = .9; ctx.font = (HEX * 0.6) + 'px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-            ctx.fillStyle = '#d8c29a'; ctx.fillText(BUILD[t.type].icon, p.x, p.y); ctx.globalAlpha = 1; ctx.textBaseline = 'alphabetic';
-            if (t.level > 1) { ctx.fillStyle = '#c9a84a'; ctx.font = (HEX * 0.24) + 'px system-ui'; ctx.fillText('Lv' + t.level, p.x, p.y + HEX * 0.55); }
-          }
+    for (const [q, r] of cells) {
+      const key = hkey(q, r);
+      const t = tiles[key];
+      const p = h2p(q, r);
+      hexPath(p.x, p.y, s);
+      ctx.fillStyle = (!t || t.type === 'dirt') ? soilFill(q, r) : roomFill(t);
+      ctx.fill();
+      if (t && t.type === 'rock') {   // 基岩斑点（灰岩质感）
+        const h1 = ((q * 73 + r * 151) % 5 + 5) % 5;
+        ctx.fillStyle = 'rgba(0,0,0,.26)';
+        ctx.beginPath(); ctx.arc(p.x - HEX * 0.28 + (h1 % 3) * HEX * 0.2, p.y + HEX * 0.12, HEX * 0.09, 0, 7); ctx.fill();
+        ctx.beginPath(); ctx.arc(p.x + HEX * 0.24, p.y - HEX * 0.2 + (h1 % 2) * HEX * 0.3, HEX * 0.06, 0, 7); ctx.fill();
+      }
+      if (t && t.type !== 'dirt') {
+        if (t.type === 'queen') { drawQueen(p.x, p.y, HEX); }
+        else if ((t.type === 'worker' || t.type === 'soldier') && t.hatch && t.hatch.stage !== 'active') { drawHatchStage(p.x, p.y, t, HEX); }
+        else if (t.type !== 'tunnel' && BUILD[t.type]) {
+          ctx.globalAlpha = .9; ctx.font = (HEX * 0.6) + 'px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.fillStyle = '#d8c29a'; ctx.fillText(BUILD[t.type].icon, p.x, p.y); ctx.globalAlpha = 1; ctx.textBaseline = 'alphabetic';
+          if (t.level > 1) { ctx.fillStyle = '#c9a84a'; ctx.font = (HEX * 0.24) + 'px system-ui'; ctx.fillText('Lv' + t.level, p.x, p.y + HEX * 0.55); }
         }
       }
     }
     // 正六边形格缝（深色细线）
     ctx.strokeStyle = 'rgba(0,0,0,.3)'; ctx.lineWidth = 1;
-    for (let q = -radius; q <= radius; q++) {
-      for (let r = Math.max(-radius, -q - radius); r <= Math.min(radius, -q + radius); r++) { const p = h2p(q, r); hexPath(p.x, p.y, s); ctx.stroke(); }
-    }
+    for (const [q, r] of cells) { const p = h2p(q, r); hexPath(p.x, p.y, s); ctx.stroke(); }
     // 挖地道模式：高亮“可挖泥土”（有暴露面：挨着已挖通道/蚁巢）
     if (!isHome && buildMode === 'dig') {
-      for (let q = -radius; q <= radius; q++) {
-        for (let r = Math.max(-radius, -q - radius); r <= Math.min(radius, -q + radius); r++) {
-          const t2 = tiles[hkey(q, r)]; if (t2 && t2.type !== 'dirt') continue;
-          if (!exposedFace(tiles, q, r)) continue;
-          const p2 = h2p(q, r);
-          ctx.fillStyle = 'rgba(255,205,90,.34)'; hexPath(p2.x, p2.y, s * 0.95); ctx.fill();
-          ctx.strokeStyle = 'rgba(255,225,140,.95)'; ctx.lineWidth = 2; ctx.setLineDash([5, 3]);
-          hexPath(p2.x, p2.y, s * 0.82); ctx.stroke(); ctx.setLineDash([]);
-          ctx.fillStyle = '#ffe6a8'; ctx.font = (HEX * 0.5) + 'px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-          ctx.fillText('⛏', p2.x, p2.y); ctx.textBaseline = 'alphabetic';
-        }
+      for (const [q, r] of cells) {
+        const t2 = tiles[hkey(q, r)]; if (t2 && t2.type !== 'dirt') continue;
+        if (!exposedFace(tiles, q, r)) continue;
+        const p2 = h2p(q, r);
+        ctx.fillStyle = 'rgba(255,205,90,.34)'; hexPath(p2.x, p2.y, s * 0.95); ctx.fill();
+        ctx.strokeStyle = 'rgba(255,225,140,.95)'; ctx.lineWidth = 2; ctx.setLineDash([5, 3]);
+        hexPath(p2.x, p2.y, s * 0.82); ctx.stroke(); ctx.setLineDash([]);
+        ctx.fillStyle = '#ffe6a8'; ctx.font = (HEX * 0.5) + 'px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText('⛏', p2.x, p2.y); ctx.textBaseline = 'alphabetic';
       }
     }
   }
@@ -2176,7 +2475,7 @@ body{
       toast('队伍 ' + 'ⅠⅡⅢⅣⅤ'[S.selSquad] + ' 已在地表放信息素点' + (cnt ? '' : '（该队还没蚂蚁，先建孵化室并分配）'), 1600);
       return;
     }
-    if (hdist(h.q, h.r, 0, 0) > S.radius) return;
+    if (!inMapCell(S, h.q, h.r)) return;
     const key = hkey(h.q, h.r);
     // 拆除模式
     if (buildMode === 'demolish') {
@@ -2205,6 +2504,8 @@ body{
       if (cnt === 0) toast('队伍 ' + 'ⅠⅡⅢⅣⅤ'[S.selSquad] + ' 还没有蚂蚁：先建孵化室并分配', 1800);
       return;
     }
+    // 点基岩 -> 提示挖不动
+    if (t && t.type === 'rock') { toast('基岩：挖不动、建不了', 1300); return; }
     // 点未挖的前线泥土 -> 探查里面有什么（知道哪里危险）
     if (isFrontierSoil(key)) { inspectSoil(key); return; }
     // 未挖通/离得太远
@@ -2283,6 +2584,8 @@ body{
     clickDem() { const b = document.getElementById('ov-dem'); if (b) b.click(); return { surface: home ? Math.round(home.surfaceFood) : null, tile: home ? ('2,0' in home.tiles) : null }; },
     setSquad: (i) => { if (S) { S.selSquad = i; refreshLevelBottom(); } },
     render: () => render(),
+    chamberRelease(key) { if (!S) return null; releaseChamber(S, key); return S; },
+    chambers() { if (!S) return null; return { ids: S.chamberInterior ? Object.keys(S.chamberInterior) : null, cells: S.chamberCell ? Object.keys(S.chamberCell).length : 0, interiors: S.chamberInterior ? Object.values(S.chamberInterior).map(r => r.length) : null }; },
   };
 })();
 
