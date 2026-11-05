@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="zh"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>地图编辑器 · The Ants</title>
+<style>
+:root{--bg:#0d1116;--panel:#141a21;--line:#2a333d;--tx:#cfd6dd;--mut:#7d8794;--acc:#e4b65c}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:14px system-ui;-webkit-user-select:none;user-select:none}
+#top{position:sticky;top:0;z-index:5;background:var(--panel);border-bottom:1px solid var(--line);padding:8px}
+.row{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:4px 0}
+label{color:var(--mut);font-size:12px}
+select,input[type=number]{background:#0a0e12;color:var(--tx);border:1px solid var(--line);border-radius:6px;padding:5px 7px;font-size:13px}
+button{background:#1c2530;color:var(--tx);border:1px solid var(--line);border-radius:7px;padding:6px 10px;font-size:13px;cursor:pointer}
+button:hover{border-color:var(--acc)}
+button.on{background:#2a3542;border-color:var(--acc);color:#fff}
+.tools button{padding:6px 8px;font-size:12px}
+#status{font-size:12px;padding:5px 8px;border-radius:6px;background:#0a0e12;border:1px solid var(--line);margin-top:4px;min-height:18px}
+#status.ok{border-color:#3f8f52;color:#7fd39a}
+#status.bad{border-color:#a03b34;color:#f0a09a}
+canvas{display:block;background:#0d1116;touch-action:none}
+#wrap{max-width:900px;margin:0 auto}
+#hint{color:var(--mut);font-size:12px;margin:6px 2px}
+a{color:#6fb3d8}
+</style></head>
+<body>
+<div id="top"><div id="wrap">
+  <div class="row">
+    <label>关卡</label>
+    <select id="mapId">
+      <option value="1-1">1.1 开掘</option>
+      <option value="1-2">1.2 清剿</option>
+      <option value="2-1">2.1 登上地表</option>
+      <option value="2-2">2.2 地表清剿</option>
+    </select>
+    <button id="load">载入现有图</button>
+    <button id="clear">清空</button>
+    <label>行</label><input id="R" type="number" min="7" max="40" value="15" style="width:52px">
+    <label>列</label><input id="C" type="number" min="7" max="40" value="15" style="width:52px">
+    <button id="size">调整大小</button>
+  </div>
+  <div class="row tools" id="tools">
+    <button data-t="." >土 .</button>
+    <button data-t="#" >基岩 #</button>
+    <button data-t=" " >空 void</button>
+    <button data-t="s" >蜘蛛 s</button>
+    <button data-t="b" >甲虫 b</button>
+    <button data-t="B" >成虫 B</button>
+    <button data-t="w" >面包虫 w</button>
+    <button data-t="u" >鼠妇 u</button>
+    <button data-t="f" >食物 f</button>
+    <button data-t="l" >空室 l</button>
+    <button data-t="Q" >蚁后 Q</button>
+    <button data-t="E" id="eraser" style="border-color:#5a4">⌫ 橡皮擦(删)</button>
+    <button data-t="P" id="pan" >✋ 平移</button>
+  </div>
+  <div class="row">
+    <button id="zout">－ 缩小</button>
+    <button id="zin">＋ 放大</button>
+    <button id="zfit">⌂ 适屏</button>
+    <span style="color:var(--mut);font-size:12px">双指捏合=缩放·平移；滚轮=缩放</span>
+  </div>
+  <div class="row">
+    <button id="undo">↶ 撤销</button>
+    <button id="redo">↷ 重做</button>
+    <button id="copy">复制 maps/level-X.js</button>
+    <button id="dl">下载 .js</button>
+    <button id="save">📱 存到本机(供游戏读)</button>
+    <button id="resetCustom">恢复默认图</button>
+    <span id="cust"></span>
+    <span id="src" style="color:var(--mut);font-size:12px"></span>
+  </div>
+  <div id="status">就绪</div>
+</div></div>
+<canvas id="cv"></canvas>
+<div style="padding:8px"><div id="wrap"><div id="hint">
+  点/拖涂格子；放错就用「⌫橡皮擦(删)」删回土，或「↶撤销」。蚁后落点=所有 Q 的质心（没画 Q 就居中）；空格=void 不画。改完先点「校验」绿了再「复制/下载/存到本机」。
+  手机上画完点「存到本机」，游戏会优先读你这张图（「恢复默认图」可清除）。
+</div></div></div>
+
+<script src="maps/level-1-1.js?v=47"></script>
+<script src="maps/level-1-2.js?v=47"></script>
+<script src="maps/level-2-1.js?v=47"></script>
+<script src="maps/level-2-2.js?v=47"></script>
+<script>
+const $ = s => document.querySelector(s);
+const SQ3 = Math.sqrt(3);
+const DIRS = [[1,0],[1,-1],[0,-1],[-1,0],[-1,1],[0,1]];
+const cv = $('#cv'), g = cv.getContext('2d');
+let rows = 15, cols = 15;
+let grid = [];            // grid[i][j] = 字符
+let tool = '.';
+let mapId = '1-1';
+// 相机（缩放/平移）
+let vw = 360, vh = 500, fitHexR = 10, zoom = 1, panX = 0, panY = 0;
+let prevTouchDist = 0, prevTouchMid = null;   // 双指捏合
+
+// ---------- 网格 ----------
+function newGrid(r, c) {
+  rows = r; cols = c; grid = [];
+  for (let i = 0; i < r; i++) grid.push(new Array(c).fill(' '));
+}
+function resize(r, c) {
+  const oR = rows, oC = cols;
+  // 扩大时空间“居中”分：加行→上/下各半，加列→左/右各半；缩小时保留左上
+  const tPad = (r > oR) ? Math.floor((r - oR) / 2) : 0;
+  const lPad = (c > oC) ? Math.floor((c - oC) / 2) : 0;
+  const ng = [];
+  for (let i = 0; i < r; i++) {
+    ng.push(new Array(c).fill(' '));
+    for (let j = 0; j < c; j++) {
+      const oi = i - tPad, oj = j - lPad;
+      if (oi >= 0 && oi < oR && oj >= 0 && oj < oC) ng[i][j] = grid[oi][oj];
+    }
+  }
+  rows = r; cols = c; grid = ng;
+  $('#R').value = r; $('#C').value = c;
+  fit(); validate();
+}
+function loadLayout(layout) {
+  const r = layout.length, c = Math.max(...layout.map(x => x.length));
+  const ng = [];
+  for (let i = 0; i < r; i++){ const row = layout[i]; const arr = new Array(c).fill(' ');
+    for (let j = 0; j < c; j++) arr[j] = j < row.length ? row[j] : ' ';
+    ng.push(arr); }
+  rows = r; cols = c; grid = ng;
+  $('#R').value = r; $('#C').value = c;
+  fit(); validate();
+}
+function clearAll(){ for (let i=0;i<rows;i++) for(let j=0;j<cols;j++) grid[i][j]=' '; fit(); validate(); }
+
+// ---------- 渲染 / 相机 ----------
+function layoutViewport() {
+  vw = Math.min(window.innerWidth - 8, 880);
+  const topH = (document.getElementById('top') ? document.getElementById('top').offsetHeight : 200);
+  vh = Math.max(380, window.innerHeight - topH - 90);
+  cv.style.width = vw + 'px'; cv.style.height = vh + 'px';
+  cv.width = Math.round(vw * devicePixelRatio); cv.height = Math.round(vh * devicePixelRatio);
+  g.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+  // 轴向外形：水平范围 = SQ3*(cols + (rows-1)/2)，垂直 = 1.5*rows（各加一点余量）
+  const wU = SQ3 * (cols + (rows - 1) / 2) + 2 * SQ3;
+  const hU = 1.5 * rows + 3;
+  fitHexR = Math.min(vw / wU, vh / hU);
+}
+function fitView() { zoom = 1; panX = 0; panY = 0; }
+function fit() { layoutViewport(); fitView(); draw(); }
+function hexRNow() { return fitHexR * zoom; }
+function cellXY(i, j) {
+  const h = hexRNow();
+  // 与游戏端 h2p 一致的“轴向”几何：x ∝ (q + r/2)、y ∝ r，q=j、r=i。
+  // 这样编辑器里看到的形状（斜切平行四边形）和游戏渲染完全一致。
+  const cx = (cols - 1) / 2 + (rows - 1) / 4;   // j + i/2 的中点
+  const cy = (rows - 1) / 2;                     // i 的中点
+  const x = vw / 2 + panX + SQ3 * h * ((j + i / 2) - cx);
+  const y = vh / 2 + panY + 1.5 * h * (i - cy);
+  return [x, y];
+}
+function cellFromEvent(e) {
+  const rect = cv.getBoundingClientRect();
+  const sx = e.clientX - rect.left, sy = e.clientY - rect.top;
+  const h = hexRNow();
+  // 暴力最近邻（无坐标反算，避免符号 bug；地图 ≤40×40，很轻）
+  let best = null, bd = 1e9;
+  for (let i = 0; i < rows; i++) for (let j = 0; j < cols; j++) {
+    const [x, y] = cellXY(i, j);
+    if (Math.abs(x - sx) > h || Math.abs(y - sy) > h) continue;   // 快速剔除
+    const d = (x - sx) * (x - sx) + (y - sy) * (y - sy);
+    if (d < bd) { bd = d; best = [i, j]; }
+  }
+  if (best && bd <= (h * 1.25) * (h * 1.25)) return best;
+  return null;
+}
+function zoomAt(factor, ax, ay) {
+  const old = zoom;
+  zoom = Math.max(0.15, Math.min(10, zoom * factor));
+  const f = zoom / old;
+  panX = ax - vw / 2 - (ax - vw / 2 - panX) * f;
+  panY = ay - vh / 2 - (ay - vh / 2 - panY) * f;
+  draw();
+}
+function hexAt(x, y, s) { g.beginPath();
+  for (let k = 0; k < 6; k++){ const a = Math.PI / 180 * (60 * k - 30);
+    const px = x + s * Math.cos(a), py = y + s * Math.sin(a);
+    k ? g.lineTo(px, py) : g.moveTo(px, py); } g.closePath(); }
+function draw() {
+  const w = vw, h = vh, hR = hexRNow(), pad = hR * 1.3;
+  g.clearRect(0, 0, w, h);
+  // 蚁后质心参考
+  let si=0,sj=0,sq=0;
+  for (let i=0;i<rows;i++)for(let j=0;j<cols;j++)if(grid[i][j]==='Q'){si+=i;sj+=j;sq++;}
+  const rowQ = sq?Math.round(si/sq):Math.floor(rows/2), colQ = sq?Math.round(sj/sq):Math.floor(cols/2);
+  for (let i = 0; i < rows; i++) for (let j = 0; j < cols; j++) {
+    const ch = grid[i][j];
+    if (ch === ' ') continue;
+    const [x, y] = cellXY(i, j);
+    if (x < -pad || x > w + pad || y < -pad || y > h + pad) continue;   // 视口剔除
+    if (ch === '#') g.fillStyle = '#4a5560';
+    else g.fillStyle = '#6b5230';
+    hexAt(x, y, hR * 0.98); g.fill();
+    g.strokeStyle = 'rgba(0,0,0,.35)'; g.lineWidth = 1; hexAt(x, y, hR * 0.98); g.stroke();
+    // 内容标记（始终画，按格大小自适应；适屏小格时画小圆点，避免大图看着像空图）
+    const dotR = Math.max(1.6, hR * 0.32);            // 小圆点半径（最小 1.6px）
+    if (ch === 'Q') { g.fillStyle = '#37c04a'; hexAt(x, y, Math.max(hR*0.5, dotR)); g.fill(); }
+    else if (ch === 'l') {   // 空室：小格画小青点，大格画◇虚线框
+      if (hR >= 10) { g.strokeStyle = '#5fd0e0'; g.lineWidth = 1.4; g.setLineDash([3,2]); hexAt(x, y, hR*0.62); g.stroke(); g.setLineDash([]);
+        g.fillStyle = '#5fd0e0'; g.font='bold '+(hR*0.5)+'px system-ui'; g.textAlign='center'; g.textBaseline='middle'; g.fillText('◇', x, y); }
+      else { g.fillStyle = '#5fd0e0'; g.beginPath(); g.arc(x, y, dotR, 0, 7); g.fill();
+             g.strokeStyle = 'rgba(95,208,224,.5)'; g.lineWidth = 1; g.beginPath(); g.arc(x, y, dotR+1.5, 0, 7); g.stroke(); }
+    }
+    else if ('sBb'.includes(ch)) { g.fillStyle = '#e3372a'; g.beginPath(); g.arc(x, y, Math.max(dotR, hR*0.3), 0, 7); g.fill(); }
+    else if (ch === 'w' || ch === 'u') { g.fillStyle = '#60cd60'; g.beginPath(); g.arc(x, y, dotR, 0, 7); g.fill();
+      if (hR >= 10) { g.font = 'bold '+(hR*0.55)+'px system-ui'; g.textAlign='center'; g.textBaseline='middle'; g.fillStyle='#0d2a0d'; g.fillText('?', x, y); } }
+    else if (ch === 'f') { g.fillStyle = '#e4b65c'; g.beginPath(); g.arc(x, y, Math.max(dotR*0.8, hR*0.22), 0, 7); g.fill(); }
+  }
+  // 蚁后落点标记
+  const [qx, qy] = cellXY(rowQ, colQ);
+  g.fillStyle = 'rgba(55,192,74,.25)'; hexAt(qx, qy, hR * 0.9); g.fill();
+  g.strokeStyle = '#37c04a'; g.lineWidth = 2; hexAt(qx, qy, hR * 0.9); g.stroke();
+}
+let painting = false;
+let undoStack = [], redoStack = [];
+function paintCell(i, j) {
+  const ch = (tool === 'E') ? '.' : tool;   // 橡皮擦→土（删掉该格上的建筑/岩/空室/蚁后）
+  if (i < 0 || i >= rows || j < 0 || j >= cols || grid[i][j] === ch) return;
+  undoStack.push([i, j, grid[i][j]]); if (undoStack.length > 400) undoStack.shift();
+  redoStack.length = 0;                  // 新操作清空重做
+  grid[i][j] = ch;
+  currentSource = 'draft'; srcMsg();
+  draw(); validate(); saveDraft();
+}
+function paintAt(e) { const c = cellFromEvent(e); if (c) paintCell(c[0], c[1]); }
+function undo() { const s = undoStack.pop(); if (!s) return; redoStack.push([s[0], s[1], grid[s[0]][s[1]]]); grid[s[0]][s[1]] = s[2]; draw(); validate(); saveDraft(); }
+function redo() { const s = redoStack.pop(); if (!s) return; undoStack.push([s[0], s[1], grid[s[0]][s[1]]]); grid[s[0]][s[1]] = s[2]; draw(); validate(); saveDraft(); }
+// 交互：鼠标（画/平移/滚轮缩放）+ 触摸（单指画/平移，双指捏合缩放）
+let panning = false, panStart = null;
+function applyPan(e) {
+  if (!panStart) return;
+  const rect = cv.getBoundingClientRect();
+  panX = panStart.px + (e.clientX - panStart.mx);
+  panY = panStart.py + (e.clientY - panStart.my);
+  draw();
+}
+function startPan(e) { panStart = { mx: e.clientX, my: e.clientY, px: panX, py: panY }; panning = true; }
+cv.addEventListener('mousedown', e => {
+  if (tool === 'P') startPan(e); else { painting = true; paintAt(e); }
+});
+cv.addEventListener('mousemove', e => { if (panning) applyPan(e); else if (painting) paintAt(e); });
+window.addEventListener('mouseup', () => { painting = false; panning = false; panStart = null; });
+cv.addEventListener('wheel', e => {
+  e.preventDefault();
+  const rect = cv.getBoundingClientRect();
+  zoomAt(e.deltaY < 0 ? 1.15 : 0.87, e.clientX - rect.left, e.clientY - rect.top);
+}, { passive: false });
+function tDist(ts) { const a = ts[0], b = ts[1]; return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY); }
+function tMid(ts) { const a = ts[0], b = ts[1]; return { x: (a.clientX + b.clientX) / 2, y: (a.clientY + b.clientY) / 2 }; }
+cv.addEventListener('touchstart', e => {
+  e.preventDefault();
+  if (e.touches.length === 2) {   // 双指捏合
+    painting = false; panning = false;
+    prevTouchDist = tDist(e.touches); prevTouchMid = tMid(e.touches);
+  } else if (e.touches.length === 1) {
+    if (tool === 'P') startPan(e.touches[0]);
+    else { painting = true; paintAt(e.touches[0]); }
+  }
+}, { passive: false });
+cv.addEventListener('touchmove', e => {
+  e.preventDefault();
+  if (e.touches.length === 2) {
+    const d = tDist(e.touches), m = tMid(e.touches);
+    const rect = cv.getBoundingClientRect();
+    if (prevTouchDist > 0) {
+      const factor = d / prevTouchDist;
+      zoomAt(factor, m.x - rect.left, m.y - rect.top);
+      if (prevTouchMid) { panX += m.x - prevTouchMid.x; panY += m.y - prevTouchMid.y; draw(); }
+    }
+    prevTouchDist = d; prevTouchMid = m;
+  } else if (e.touches.length === 1) {
+    if (panning) applyPan(e.touches[0]);
+    else if (painting) paintAt(e.touches[0]);
+  }
+}, { passive: false });
+cv.addEventListener('touchend', e => {
+  if (e.touches.length < 2) { prevTouchDist = 0; prevTouchMid = null; }
+  if (e.touches.length === 0) { painting = false; panning = false; panStart = null; }
+});
+// 缩放按钮
+function centerZoom(factor) { layoutViewport(); zoomAt(factor, vw / 2, vh / 2); }
+$('#zin').onclick = () => centerZoom(1.3);
+$('#zout').onclick = () => centerZoom(0.77);
+$('#zfit').onclick = fit;
+
+// ---------- 校验（同 check-maps 规则）----------
+function validate() {
+  const el = $('#status');
+  const R = rows, C = cols;
+  const at = (i,j) => (i>=0&&i<R&&j>=0&&j<C)?grid[i][j]:' ';
+  const cellSet = new Set();
+  for (let i=0;i<R;i++)for(let j=0;j<C;j++) if(at(i,j)!==' ') cellSet.add(i+','+j);
+  // 蚁后质心
+  let si=0,sj=0,sq=0;
+  for (let i=0;i<R;i++)for(let j=0;j<C;j++)if(at(i,j)==='Q'){si+=i;sj+=j;sq++;}
+  const rowQ = sq?Math.round(si/sq):Math.floor(R/2), colQ = sq?Math.round(sj/sq):Math.floor(C/2);
+  const qk = rowQ+','+colQ;
+  const problems = [];
+  if (!cellSet.has(qk)) problems.push('蚁后落点(质心)不在地图内');
+  // 蚁后 7 格不被岩/埋藏占
+  const CONTENT = new Set(['s','b','B','w','u','f']);
+  const rel = [[0,0],[0,1],[-1,1],[-1,0],[0,-1],[1,-1],[1,0]];
+  for (const [dq,dr] of rel) {
+    const k=(rowQ+dq)+','+(colQ+dr);
+    if (cellSet.has(k)) { const c=at(rowQ+dq,colQ+dr);
+      if (c==='#'||CONTENT.has(c)) problems.push('蚁后 7 格被'+(c==='#'?'基岩':'埋藏')+'占用'); }
+  }
+  // 埋藏可达（六邻 BFS 到蚁后）
+  const buried = [];
+  for (const k of cellSet){ const [i,j]=k.split(',').map(Number); if(CONTENT.has(at(i,j))) buried.push(k); }
+  const adj = (k)=>{ const [i,j]=k.split(',').map(Number); const o=[];
+    for (const [dq,dr] of DIRS){ const ni=i+dq,nj=j+dr; if(ni<0||ni>=R||nj<0||nj>=C)continue;
+      const nk=ni+','+nj; if(cellSet.has(nk)&&at(ni,nj)!=='#') o.push(nk);} return o; };
+  const seen = new Set([qk]); const q0=[qk];
+  while(q0.length){ const k=q0.pop(); for(const nk of adj(k)) if(!seen.has(nk)){seen.add(nk);q0.push(nk);} }
+  const unreachable = buried.filter(k=>!seen.has(k));
+  if (unreachable.length) problems.push(unreachable.length+' 个埋藏挖不到（被基岩围死/隔断）');
+  // 空室内部计数
+  let lcnt = 0; for (let i=0;i<R;i++)for(let j=0;j<C;j++)if(at(i,j)==='l') lcnt++;
+  const ok = problems.length===0;
+  el.textContent = (ok?'✓ 通过':'✗ '+problems.join('；'))
+    + (sq?'':'  ⚠无Q(蚁后默认居中)') + '  埋藏'+buried.length+(lcnt?'  空室l×'+lcnt:'');
+  el.className = ok?'ok':'bad';
+  return ok;
+}
+
+// ---------- 导出 / 存储 ----------
+function layoutText() {
+  // 去掉每行尾部 void，得到可能不等长的行
+  return grid.map(row => { let s = row.join(''); const m = s.match(/^([^ ]*(?: (?=[^ ]))*)/); return s.replace(/ +$/,''); });
+}
+function jsText() {
+  const lay = layoutText();
+  return "// 地图 '"
+  + " " + mapId + "'（由地图编辑器导出）\n"
+    + "window.ANT_MAPS = window.ANT_MAPS || {};\n"
+    + "window.ANT_MAPS['" + mapId + "'] = {\n"
+    + "  layout: [\n"
+    + lay.map(r => "    '" + r + "'").join(',\n')
+    + "\n  ]\n};\n";
+}
+$('#copy').onclick = async () => {
+  mapId = $('#mapId').value;
+  const t = jsText();
+  try { await navigator.clipboard.writeText(t); $('#status').textContent='✓ 已复制 maps/level-'+mapId.replace('-','.')+'.js 内容，粘贴到 maps/ 文件即可'; $('#status').className='ok'; }
+  catch(e){ prompt('复制失败，请手动复制：', t); }
+};
+$('#dl').onclick = () => {
+  mapId = $('#mapId').value;
+  const blob = new Blob([jsText()], {type:'text/plain'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'level-'+mapId.replace('-','.')+'.js'; a.click();
+};
+$('#save').onclick = () => {
+  mapId = $('#mapId').value;
+  if (!validate()) { /* 仍允许存，但提示 */ }
+  localStorage.setItem('antmap_'+mapId, JSON.stringify({ layout: layoutText() }));
+  custMsg();
+  $('#status').textContent = '✓ 已存到本机（游戏将优先用你这张图）。去 index.html 玩「'+mapId+'」。';
+  $('#status').className = 'ok';
+};
+$('#resetCustom').onclick = () => {
+  localStorage.removeItem('antmap_'+mapId); custMsg();
+  $('#status').textContent = '✓ 已清除本机自定义图，'+mapId+' 恢复用 maps/ 默认文件。'; $('#status').className = 'ok';
+};
+function custMsg() {
+  const has = !!localStorage.getItem('antmap_'+mapId);
+  $('#cust').textContent = has ? '（本机已存 '+mapId+' 自定义图）' : '';
+}
+// 每关独立草稿（编辑中不丢）：antdraft_<mapId>；优先级 草稿 > 自定义(antmap) > 文件
+let currentSource = 'file';
+function saveDraft(){ try { localStorage.setItem('antdraft_'+mapId, JSON.stringify({ layout: layoutText() })); } catch(e){} }
+function srcMsg() { const m = { draft: '草稿(你刚画的)', custom: '自定义(存到本机)', file: 'maps 文件' }; $('#src').textContent = '· 当前图来自：' + m[currentSource]; }
+function loadFor(id) {
+  mapId = id;
+  let lay = null; currentSource = 'file';
+  try { const d = localStorage.getItem('antdraft_'+id); if (d) { const o = JSON.parse(d); if (o && Array.isArray(o.layout) && o.layout.length) { lay = o.layout; currentSource = 'draft'; } } } catch(e){}
+  if (!lay) { try { const c = localStorage.getItem('antmap_'+id); if (c) { const o = JSON.parse(c); if (o && Array.isArray(o.layout) && o.layout.length) { lay = o.layout; currentSource = 'custom'; } } } catch(e){} }
+  if (!lay) { const f = (window.ANT_MAPS||{})[id]; if (f) lay = f.layout; }
+  custMsg(); srcMsg();
+  if (lay) loadLayout(lay);
+  else { newGrid(15,15); fit(); }
+}
+$('#load').onclick = () => {
+  const id = $('#mapId').value;
+  const f = (window.ANT_MAPS||{})[id];
+  if (!f) { alert('未找到 maps 里的 '+id); return; }
+  mapId = id;
+  try { localStorage.removeItem('antdraft_'+id); } catch(e){}
+  currentSource = 'file';
+  loadLayout(f.layout); custMsg(); srcMsg();
+  $('#status').textContent = '已载入 maps/level-'+id.replace('-','.')+'.js（'+f.layout.length+' 行，丢弃了本关草稿）。改完点「存到本机/复制/下载」。';
+};
+$('#clear').onclick = clearAll;
+$('#size').onclick = () => resize(+$('#R').value, +$('#C').value);
+// 切关卡 → 自动载入对应图（先存当前草稿，不丢编辑）
+$('#mapId').onchange = () => { saveDraft(); loadFor($('#mapId').value); };
+
+// 工具按钮
+$('#tools').querySelectorAll('button').forEach(b => b.onclick = () => {
+  tool = b.dataset.t;
+  $('#tools').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+});
+// 默认选中「土」
+$('#tools button[data-t="."]').classList.add('on');
+// 撤销/重做（手机可点；橡皮删、误操作都能救）
+$('#undo').onclick = undo;
+$('#redo').onclick = redo;
+window.addEventListener('keydown', e => {
+  const k = e.key.toLowerCase();
+  if ((e.ctrlKey||e.metaKey) && k==='z') { e.preventDefault(); e.shiftKey ? redo() : undo(); }
+  else if ((e.ctrlKey||e.metaKey) && k==='y') { e.preventDefault(); redo(); }
+});
+
+// 首次：载入 1-1（草稿 > 自定义 > 文件）
+loadFor('1-1');
+window.addEventListener('resize', () => { layoutViewport(); draw(); });
+// 测试/脚本钩子
+window.__ME__ = {
+  jsText, layoutText, validate, loadLayout,
+  grid: () => grid.map(r => r.join('')),
+  set: (i, j, ch) => { if (i >= 0 && i < rows && j >= 0 && j < cols) { grid[i][j] = ch; draw(); validate(); } },
+  paint: (i, j) => paintCell(i, j),
+  cellXY,
+  hexRNow: () => hexRNow(),
+  clickAt: (sx, sy) => { const r = cv.getBoundingClientRect(); return cellFromEvent({ clientX: r.left + sx, clientY: r.top + sy }); },
+  size: () => ({ rows, cols, mapId }),
+  saveLS: () => { localStorage.setItem('antmap_' + mapId, JSON.stringify({ layout: layoutText() })); },
+  resetLS: () => localStorage.removeItem('antmap_' + mapId),
+};
+</script></body></html>

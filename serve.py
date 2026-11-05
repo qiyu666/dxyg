@@ -9,6 +9,11 @@ class H(http.server.SimpleHTTPRequestHandler):
         super().__init__(*a, directory=ROOT, **k)
     def log_message(self, *a):
         pass
+    def end_headers(self):
+        # 开发时不缓存，改了 maps/ 或 .js 后普通刷新即可生效
+        self.send_header('Cache-Control', 'no-store, must-revalidate')
+        self.send_header('Pragma', 'no-cache')
+        super().end_headers()
     def do_POST(self):
         if self.path.startswith('/shot'):
             n = int(self.headers.get('Content-Length', 0))

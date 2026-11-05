@@ -222,6 +222,7 @@ body{
       <button id="z-out" aria-label="缩小">－</button>
       <button id="z-reset" aria-label="复位">↺</button>
     </div>
+    <button id="mapedit-entry" aria-label="地图编辑器" title="地图编辑器" onclick="location.href='map_editor.html'" style="position:fixed;top:6px;right:6px;z-index:50;width:32px;height:32px;border-radius:50%;background:rgba(20,26,33,.82);border:1px solid #2a333d;color:#e4b65c;font-size:16px;line-height:1;">🗺</button>
   </main>
 
   <nav id="bottom" class="hidden">
@@ -230,58 +231,48 @@ body{
 </div>
 
 <script>
-/* ============================================================
- * 地图 1.1 · 第一章 第一关「开掘」专属地下地图
- * 圆润钻石形土体，外圈灰色基岩环；蚁后居中；
- * 红色敌人成团（左上/右上/中/下方），中圈一圈食物，面包虫/鼠妇散落。
- *
- * 15×15 网格（第 8 行第 8 列 = 蚁后中心），字符含义：
- *   # 基岩（不可挖）   . 土（可挖）
- *   s 蜘蛛  b 甲虫  B 成年甲虫（埋藏敌人，挖到才钻出）
- *   w 面包虫  u 鼠妇（不攻击、可吃的资源，埋藏）
- *   f 泥土食物（埋藏）
- *   Q 蚁后巢（7 格，游戏启动时固定生成，无需在此放置）
- * ============================================================ */
+// 地图 ' 1-1'（由地图编辑器导出）
 window.ANT_MAPS = window.ANT_MAPS || {};
 window.ANT_MAPS['1-1'] = {
   layout: [
-    '###############################',
-    '#..................................#',
-    '#..................................#',
-    '#..................................#',
-    '#..................................#',
-    '#..................................#',
-    '#..................................#',
-    '#..................................#',
-    '#..................................#',
-    '#..................................#',
-    '#..................................#',
-    '#..................................#',
-    '#..................................#',
-    '#..................................#',
-    '#..................................#',
-    '#..................................#',
-    '#..................................#',
-    '#..................................#',
-    '#..................................#',
-    '#........lllllll....................#',
-    '#........lwbbwwl.....................#',
-    '#........lllllll....................#',
-    '#..................................#',
-    '#..................................#',
-    '#.....www.....QQ....ww.......ww....#',
-    '#www..ww.....QQQ...ww.........w....#',
-    '#www...........QQ..................#',
-    '#..................................#',
-    '#..................................#',
-    '#.....................www..........#',
-    '#......................ww..........#',
-    '#.........ww.......................#',
-    '#.........bbb...............bbwbb....#',
-    '#............................ww....#',
-    '###############################',
-  ],
+    '###################.###########.....',
+    '#.............................#......',
+    '#.............................#..... .',
+    '#.............................#......',
+    '#.............................#......',
+    '#.............................#.....',
+    '#.............................#......',
+    '#.............................#.......',
+    '#..........lllll....lllll.....#.......',
+    '#.........lu.u.l...lu...l.....#.....',
+    '#.........l....ul..llu..ul....#......',
+    '#........lu.uu.ul..lu.u..l....#.....',
+    '#.........l...u.l...l.u..l....#......',
+    '#.........llllll...llllll.....#.....',
+    '#.............................#.....',
+    '#.................lllll.......#.....',
+    '#...........llll..lfBBl.......#.......',
+    '#..........lfbbl..llfl........#.......',
+    '#...........llfbl...ll........#......',
+    '#............lbl..............#......',
+    '#.............ll..............#.......',
+    '#........................ll...#......',
+    '#........................lll..#......',
+    '#...ll...ll.........ll..lwwl..#......',
+    '#...lwl..lwl...QQ...lwl..lll..#......',
+    '#..lwwl.lwwl..QQQ..lwwl.......#......',
+    '#...lll..lll...QQ...lll.......#.....',
+    '#.............................#.....',
+    '#.................ll..........#......',
+    '#................lwl..........#.....',
+    '#..........lll...lwwl.........#.....',
+    '#.........lbbl...lll..........#..... .',
+    '#..........lll................#.......',
+    '#.............................#.....',
+    '###############################.....'
+  ]
 };
+
 </script>
 
 <script>
@@ -813,8 +804,10 @@ window.ANT_MAPS['2-2'] = {
   let colorPick = 0;
   let selectedHomeTile = null;  // {q,r}
   let pointerDown = false, downX = 0, downY = 0, downTime = 0, dragging = false;
+  let longPressFired = false;   // 本次长按已触发面板（升级/拆除/删标记）→ 松手时不再当点按（免得队伍分配把面板顶掉）
   let lastMarkerPoint = null;
   let pressTimer = null;
+  let digDrag = null;   // 拖拽画地道：{path:[key...], qr:[[q,r]...]}，按住拖动在已挖空间外沿画一条地道
   const pointers = new Map(); let pinchPrev = 0, gestureMax = 0, pinchPrevC = null, panStart = null, hintedPan = false;
 
   const hud = {
@@ -1092,17 +1085,29 @@ window.ANT_MAPS['2-2'] = {
   // =========================================================
   //  关卡
   // =========================================================
+  // 读该关地图布局：优先 localStorage 自定义图（antmap_<mapId>，地图编辑器/手机保存），否则回退 maps/ 文件
+  function getMapLayout(mapId) {
+    try {
+      const raw = localStorage.getItem('antmap_' + mapId);
+      if (raw) { const o = JSON.parse(raw); if (o && Array.isArray(o.layout) && o.layout.length) return { layout: o.layout, custom: true, id: mapId }; }
+    } catch (e) { /* 忽略坏数据 */ }
+    const f = (window.ANT_MAPS || {})[mapId];
+    return f ? { layout: f.layout, custom: false, id: mapId } : null;
+  }
+
   function createLevel(idx) {
     const lv = LEVELS[idx];
-    const mapDef = (window.ANT_MAPS || {})[lv.mapId];
+    const mapDef = getMapLayout(lv.mapId);
     // 地图半径按专属地图文件自适应（奇数正方形 N×N → 半径 (N-1)/2）；无地图时用默认 7
     const Rm = (mapDef && mapDef.layout && mapDef.layout[0]) ? Math.floor(mapDef.layout[0].length / 2) : LEVEL_RADIUS;
     const st = {
-      idx, lv, def: lv, radius: Rm, tiles: {},
+      idx, lv, def: lv, radius: Rm, customMap: !!(mapDef && mapDef.custom), tiles: {},
       food: 35, larva: 0, larvaTimer: 0,
       queenHp: 500, queenMax: 500,
       ants: [], enemies: [], foods: [], corpses: [], webs: [], buried: {},
       squads: [], selSquad: 0, buildMode: null,
+      zoneDesign: {}, zoneTimer: 1,   // 信息素组（物理隔离自动成组）：zoneDesign[隔离区签名]=小队槽
+      manualSquad: {},   // 主巢孵化室手动指派到某队（覆盖默认Ⅰ）
       builtSoldier: 0, builtWorker: 0, harvested: 0,
       spawnAcc: 0, over: false, win: false, time: 0,
       raidTimer: 120, raidCount: 0, raidStolen: false, pointsSpent: 0, foodTimer: (lv.foodRate || 12),
@@ -1351,6 +1356,17 @@ window.ANT_MAPS['2-2'] = {
         <button class="tog ${s.allowAttack ? 'on' : 'off'}" id="tog-atk">${s.allowAttack ? '⚔ 攻' : '⚔ 停'}</button>
         <button class="tog ${s.allowCarry ? 'on' : 'off'}" id="tog-carry">${s.allowCarry ? '🍃 搬' : '🍃 停'}</button></div>`;
       html += '<div class="hint">点上方选队伍 → 再点地图放信息素点（该队蚂蚁跟随）· 双击队伍=清空</div>';
+      // 物理隔离区（自动成组）状态提示
+      const zones = S._zones || computeZones();
+      const iso = zones.filter(z => !z.hasQueen && z.hatches.length);
+      if (iso.length) {
+        const parts = iso.map(z => {
+          const des = z.hatches.every(hk => (S.tiles[hk].squad ?? -1) >= 0);
+          const sq = S.tiles[z.hatches[0]].squad;
+          return des ? ('区→' + 'ⅠⅡⅢⅣⅤ'[sq]) : '⚠未指认';
+        });
+        html += `<div class="hint zone-hint">隔离区（物理隔断自动成组）：${parts.join(' · ')}。未指认的→选队后点区内孵化室指定。</div>`;
+      }
     } else {
       html += `<div class="hint">${S.viewLayer === 'surface' ? '地表：选「信息素」选队伍后点地图放信息素点，蚂蚁走竖井上去采集/战斗；点「到地面」回地下' : (S.lv.surface ? '点「到地面」爬上地表：选队伍+放信息素点，工蚁/兵蚁经竖井往返采集与清剿' : '本章为纯地下，无地表（第二章解锁地表）')}</div>`;
     }
@@ -1462,6 +1478,72 @@ window.ANT_MAPS['2-2'] = {
     }
   }
 
+  const DIG_NEED = 2;   // 一只工蚁把一格挖通的蹲挖时长（秒）
+  // 拖拽画地道的队列：把玩家拖出的 N 格按顺序排好，工蚁逐格挖、挖完自动接下一格
+  function assignDigWorker(key) {
+    const [q, r] = key.split(',').map(Number);
+    const p = h2p(q, r);
+    let best = null, bd = 1e9;
+    for (const a of S.ants) { if (a.hp <= 0 || a.carry > 0 || a.digKey) continue; if (a.kind !== 'worker') continue; const d = Math.hypot(a.x - p.x, a.y - p.y); if (d < bd) { bd = d; best = a; } }
+    if (best) { best.digKey = key; best.digQ = q; best.digR = r; }
+    return !!best;
+  }
+  // 每帧由 levelUpdate 调用：
+  // A) 队列（拖拽画的地道）：队首待挖格无人挖时派最近空闲工蚁——上一只挖地蚁死了/新工蚁刚孵化，都能自动接力
+  // B) 孤儿任务：有 .dig 但不在队列（单 tap 挖）且无人挖 → 重新派蚁
+  function pumpDigQueue() {
+    if (!S) return;
+    if (S.digQueue && S.digQueue.length) {
+      let target = null;
+      for (const key of S.digQueue) { const t = S.tiles[key]; if (t && t.dig) { target = key; break; } }   // 取队首仍需挖的格（保序，跳过已完成的陈旧项）
+      if (target) { if (!S.ants.some(a => a.digKey === target)) assignDigWorker(target); return; }
+      S.digQueue.length = 0;
+    }
+    for (const key in S.tiles) {
+      const t = S.tiles[key];
+      if (!t || !t.dig) continue;
+      if (S.ants.some(a => a.digKey === key)) continue;   // 已在挖
+      assignDigWorker(key); return;   // 一帧补派一个即可
+    }
+  }
+  // 是否可挖土格（无 tile 条目=原始土；无建筑的 dirt 也算土；岩/蚁后/通道/建筑不算）
+  function isDirtCell(q, r) {
+    if (!inMapCell(S, q, r)) return false;
+    const t = S.tiles[hkey(q, r)];
+    if (!t) return true;
+    return t.type === 'dirt' && !t.level && !t.hatch;
+  }
+  function startDigDragHex(q, r) {
+    if (!S || !isDirtCell(q, r) || !exposedFace(S.tiles, q, r)) return;
+    const key = hkey(q, r);
+    digDrag = { path: [key], qr: [[q, r]] };
+    if (!S.tiles[key]) S.tiles[key] = { type: 'dirt' };
+    S.tiles[key].dig = { progress: 0, need: DIG_NEED };
+  }
+  function extendDigDragHex(q, r) {
+    if (!digDrag) return;
+    const key = hkey(q, r);
+    if (digDrag.path.indexOf(key) >= 0) return;
+    if (!isDirtCell(q, r)) return;
+    const [lq, lr] = digDrag.qr[digDrag.qr.length - 1];
+    let adj = false; for (const [dq, dr] of DIRS) if (q === lq + dq && r === lr + dr) { adj = true; break; }   // 必须挨着上一步（沿地道外延）
+    if (!adj) return;
+    digDrag.path.push(key); digDrag.qr.push([q, r]);
+    if (!S.tiles[key]) S.tiles[key] = { type: 'dirt' };
+    S.tiles[key].dig = { progress: 0, need: DIG_NEED };   // 入队（progress 0=待挖）
+  }
+  function extendDigDrag(x, y) { const w = s2w(x, y), h = p2h(w.x, w.y); extendDigDragHex(h.q, h.r); }
+  function commitDigDrag() {
+    if (!digDrag || !digDrag.path.length) { digDrag = null; return; }
+    for (const key of digDrag.path) { const t = S.tiles[key]; if (t && t.type === 'dirt' && !t.dig) t.dig = { progress: 0, need: DIG_NEED }; }
+    S.digQueue = digDrag.path.slice();
+    digDrag = null;
+    pumpDigQueue();
+    refreshLevelBottom();
+    const n = S.digQueue.length;
+    if (n > 1) toast('地道 ' + n + ' 格已排队 · 工蚁逐格挖、自动接格 · 底部「取消挖掘」可中止', 1800);
+  }
+
   // 工蚁挖掘：派一只工蚁过去，蹲在格子上把进度挖满才变通道
   function orderDigAt(q, r) {
     if (!inMapCell(S, q, r)) return;
@@ -1472,7 +1554,7 @@ window.ANT_MAPS['2-2'] = {
     if (t && t.type !== 'dirt') { toast('这里已有建筑'); return; }
     if (!exposedFace(S.tiles, q, r)) { toast('无暴露面：这块土没挨着已挖空间（通道/蚁巢/建筑），挖不了', 1600); return; }
     S.tiles[key] = { type: 'dirt' };
-    S.tiles[key].dig = { progress: 0, need: 2 };
+    S.tiles[key].dig = { progress: 0, need: DIG_NEED };
     const p = h2p(q, r);
     let best = null, bd = 1e9;
     for (const a of S.ants) { if (a.hp <= 0 || a.carry > 0 || a.digKey) continue; if (a.kind !== 'worker') continue; const d = Math.hypot(a.x - p.x, a.y - p.y); if (d < bd) { bd = d; best = a; } }
@@ -1492,6 +1574,7 @@ window.ANT_MAPS['2-2'] = {
       else delete t.dig;
     }
     for (const a of S.ants) { if (a.digKey) { a.digKey = null; a.digQ = null; a.digR = null; a.state = 'idle'; } }
+    S.digQueue = null;
     Sfx.tap();
     toast(n ? ('已取消 ' + n + ' 处挖掘，工蚁回收') : '没有正在挖的', 1200);
     refreshLevelBottom();
@@ -1561,6 +1644,58 @@ window.ANT_MAPS['2-2'] = {
   }
 
   // ---------------- 关卡更新 ----------------
+  // ── 信息素组（物理隔离自动成组，照 地下蚁国）──────────────────
+  // 对“已挖开敞格”（通道/建筑/蚁后/已爆空室，非岩非土）做泛洪连通 → 分成分区：
+  // 含蚁后的区=主巢（自动归Ⅰ队）；其他区=隔离区，区内孵化室自动进玩家指认的小队槽（zoneDesign），未指认则不孵化。
+  function computeZones() {
+    if (!S) return [];
+    const OPEN = new Set();
+    for (const key in S.tiles) { const t = S.tiles[key]; if (t && t.type !== 'rock' && t.type !== 'dirt') OPEN.add(key); }
+    const NB = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, -1], [-1, 1]];
+    const seen = new Set();
+    const regions = [];
+    for (const start of OPEN) {
+      if (seen.has(start)) continue;
+      const cells = new Set([start]); const stack = [start]; seen.add(start);
+      while (stack.length) {
+        const k = stack.pop(); const [q, r] = k.split(',').map(Number);
+        for (const [dq, dr] of NB) { const nk = hkey(q + dq, r + dr); if (OPEN.has(nk) && !seen.has(nk)) { seen.add(nk); cells.add(nk); stack.push(nk); } }
+      }
+      let hasQueen = false; const hatches = [];
+      for (const k of cells) { const t = S.tiles[k]; if (t.type === 'queen') hasQueen = true; if (t.type === 'worker' || t.type === 'soldier') hatches.push(k); }
+      regions.push({ cells, hasQueen, hatches });
+    }
+    return regions;
+  }
+  // 按物理区把孵化室分配到小队：
+  //   主巢区（含蚁后）→ 默认Ⅰ，但可手动指派到别的队（manualSquad[key]，点选覆盖，1s 重算不冲掉）；
+  //   隔离区 → 区内指认的小队槽（zoneDesign，隔离区优先）；未指认→-1（不孵化）。
+  // 同时重建各小队 assigned 集合（种群上限/显示）。
+  function applyZoneSquads() {
+    if (!S) return;
+    const regions = computeZones();
+    S._zones = regions;
+    const zoneOfKey = {};
+    regions.forEach((rg, i) => { for (const k of rg.cells) zoneOfKey[k] = i; });
+    S.squads.forEach(sq => sq.assigned.clear());
+    for (const key in S.tiles) {
+      const t = S.tiles[key];
+      if (t.type !== 'worker' && t.type !== 'soldier') continue;
+      const rg = regions[zoneOfKey[key]];
+      let squad;
+      if (!rg || rg.hasQueen) {
+        squad = (S.manualSquad[key] !== undefined) ? S.manualSquad[key] : 0;   // 主巢：手动指派优先，否则默认Ⅰ
+      } else {
+        const sig = rg.hatches.slice().sort().join('|');
+        let s = S.zoneDesign[sig];
+        if (s === undefined) for (const s2 in S.zoneDesign) if (s2.split('|').every(k => rg.hatches.indexOf(k) >= 0)) { s = S.zoneDesign[s2]; break; }
+        squad = (s === undefined) ? -1 : s;   // 隔离区：区指认优先
+      }
+      t.squad = squad;
+      if (squad >= 0) S.squads[squad].assigned.add(key);
+    }
+  }
+
   function levelUpdate(dt) {
     if (!S || S.over) return;
     S.time += dt;
@@ -1579,6 +1714,10 @@ window.ANT_MAPS['2-2'] = {
         S.foods.push({ x: p.x, y: p.y, amount: 30 });
       }
     }
+
+    // 信息素组：低频重算物理区→小队（挖掘/空室/拆除改变连通后 1s 内自动跟上）
+    S.zoneTimer = (S.zoneTimer || 0) - dt;
+    if (S.zoneTimer <= 0) { S.zoneTimer = 1.0; applyZoneSquads(); }
 
     // 孵化方格生命周期：empty(工蚁取卵) → 卵 → 白幼虫 → 黄蛹 → 羽化(耗食物)
     for (const key in S.tiles) {
@@ -1640,6 +1779,8 @@ window.ANT_MAPS['2-2'] = {
     updateAnts(dt);
     // 食物
     updateFoods(dt);
+    // 挖地道队列：每帧补派（挖地蚁死亡/新工蚁孵化/空闲工蚁腾出后自动接力，不死坑）
+    pumpDigQueue();
 
     // 敌对蚂蚁来袭（第二关）
     if (S.lv.raid) {
@@ -1690,6 +1831,10 @@ window.ANT_MAPS['2-2'] = {
               revealTile(dk);   // 挖通→露出埋藏的敌人/食物
               if (S.chamberCell && S.chamberCell[dk] !== undefined) releaseChamber(S, dk);   // 挖到空室 l → 释放（id 0 也有效）
               Sfx.dig();
+              if (S.digQueue && S.digQueue.length) {   // 自动接格：把挖完的这格从队列移除，接着挖下一格
+                const qi = S.digQueue.indexOf(dk); if (qi >= 0) S.digQueue.splice(qi, 1);
+                pumpDigQueue();
+              }
             }
           }
         } else { a.digKey = null; a.digQ = null; a.digR = null; }
@@ -1747,12 +1892,14 @@ window.ANT_MAPS['2-2'] = {
         a.x += Math.cos(ang) * spd * dt; a.y += Math.sin(ang) * spd * dt;
         continue;
       }
-      // 前往本队伍的信息素点（每只蚁取该点周围一个随机目标位，散开成一群）
+      // 前往本队伍的信息素点：到达后**不站住**，在点周围持续取新的游走目标（全运动，照 地下蚁国）
       if (sq.marker) {
-        const gx = a.goalX != null ? a.goalX : sq.marker.q;
-        const gy = a.goalY != null ? a.goalY : sq.marker.r;
-        const md = Math.hypot(gx - a.x, gy - a.y);
-        if (md > 10) routeMove(a, gx, gy, spd, dt); else a.state = 'wait';
+        const mq = sq.marker.q, mr = sq.marker.r;
+        if (a.goalX == null || Math.hypot(a.goalX - a.x, a.goalY - a.y) < 12) {
+          const ang = Math.random() * 6.28, rad = 6 + Math.random() * 34;
+          a.goalX = mq + Math.cos(ang) * rad; a.goalY = mr + Math.sin(ang) * rad;
+        }
+        routeMove(a, a.goalX, a.goalY, spd, dt);
       } else {
         a.goalX = null; a.goalY = null; a.state = 'idle';
         // 兵蚁守在蚁后附近；工蚁在巢口附近游走（让蚁群看起来是活的）
@@ -2020,6 +2167,11 @@ window.ANT_MAPS['2-2'] = {
     ctx.fillText('— 地表（蜘蛛 / 食物 / 出入口）—', 0, -(LEVEL_RADIUS * HEX * 1.732 + 40));
   }
 
+  // 各小队专属色（信息素标记 + 蚂蚁小队圆点共用，玩家一眼分得清队）
+  const SQUAD_NAMES = 'ⅠⅡⅢⅣⅤ';
+  const SQUAD_RINGS = ['rgba(220,90,60,.95)', 'rgba(120,210,110,.95)', 'rgba(110,150,230,.95)', 'rgba(230,190,70,.95)', 'rgba(200,110,210,.95)'];
+  const SQUAD_GLOWS = ['rgba(200,70,45,.4)', 'rgba(90,190,90,.4)', 'rgba(90,120,220,.4)', 'rgba(220,180,50,.35)', 'rgba(190,90,200,.4)'];
+
   function renderLevel() {
     refreshPhelBtn();
     renderIdleBg();
@@ -2075,24 +2227,30 @@ window.ANT_MAPS['2-2'] = {
     // 单位（仅本区，按 2.5D 深度 y 远→近 排序）
     const units = [];
     for (const e of S.enemies) if (inVz(e.x, e.y)) units.push({ d: e.y, f: () => drawEnemy(e) });
-    for (const a of S.ants) if (a.hp > 0 && inVz(a.x, a.y)) units.push({ d: a.y, f: () => drawAnt(a.x, a.y, a.angle, a.kind === 'soldier' ? 1.35 : 1.05, antColor(a), a.phase, a.carry) });
+    for (const a of S.ants) if (a.hp > 0 && inVz(a.x, a.y)) units.push({ d: a.y, f: () => { drawAnt(a.x, a.y, a.angle, a.kind === 'soldier' ? 1.35 : 1.05, antColor(a), a.phase, a.carry);
+      const si = (a.squad || 0) % 5;   // 蚂蚁头顶小队色点（Ⅰ红 Ⅱ绿 Ⅲ蓝 Ⅳ黄 Ⅴ紫）
+      ctx.save(); ctx.fillStyle = SQUAD_RINGS[si]; ctx.beginPath(); ctx.arc(a.x, a.y - 11, 4, 0, 7); ctx.fill();
+      ctx.strokeStyle = 'rgba(0,0,0,.6)'; ctx.lineWidth = 1; ctx.stroke(); ctx.restore(); } });
     units.sort((p, q) => p.d - q.d);
     for (const u of units) u.f();
-    // 信息素（本区）
-    const sq = S.squads[S.selSquad];
-    if (sq && sq.marker && inVz(sq.marker.q, sq.marker.r)) {
-      const m = sq.marker;
+    // 信息素（本区）：画**所有队**的标记（各队不同色 + 罗马数字标签），不只当前选中队
+    for (let si = 0; si < S.squads.length; si++) {
+      const sqi = S.squads[si];
+      if (!sqi.marker || !inVz(sqi.marker.q, sqi.marker.r)) continue;
+      const m = sqi.marker, sel = si === S.selSquad;
       const g = ctx.createRadialGradient(m.q, m.r, 1, m.q, m.r, 22);
-      g.addColorStop(0, sq.allowAttack ? 'rgba(190,50,35,.5)' : 'rgba(120,190,90,.45)');
-      g.addColorStop(1, 'rgba(0,0,0,0)');
+      g.addColorStop(0, SQUAD_GLOWS[si]); g.addColorStop(1, 'rgba(0,0,0,0)');
       ctx.fillStyle = g; ctx.beginPath(); ctx.arc(m.q, m.r, 22, 0, 7); ctx.fill();
-      ctx.strokeStyle = sq.allowAttack ? 'rgba(210,90,60,.8)' : 'rgba(150,210,120,.8)';
-      ctx.lineWidth = 1.6; ctx.beginPath(); ctx.arc(m.q, m.r, 8, 0, 7); ctx.stroke();
-      // ×（点它/点标记即可删除信息素点）
-      ctx.strokeStyle = 'rgba(255,255,255,.95)'; ctx.lineWidth = 2.2; ctx.lineCap = 'round';
-      ctx.beginPath(); ctx.moveTo(m.q - 5, m.r - 5); ctx.lineTo(m.q + 5, m.r + 5); ctx.moveTo(m.q + 5, m.r - 5); ctx.lineTo(m.q - 5, m.r + 5); ctx.stroke(); ctx.lineCap = 'butt';
-      ctx.fillStyle = 'rgba(255,255,255,.75)'; ctx.font = '9px system-ui'; ctx.textAlign = 'center';
-      ctx.fillText('点×删', m.q, m.r + 20);
+      ctx.strokeStyle = SQUAD_RINGS[si]; ctx.lineWidth = sel ? 2.6 : 1.6;
+      ctx.beginPath(); ctx.arc(m.q, m.r, 8, 0, 7); ctx.stroke();
+      ctx.fillStyle = 'rgba(255,255,255,.95)'; ctx.font = 'bold 10px system-ui'; ctx.textAlign = 'center';
+      ctx.fillText(SQUAD_NAMES[si], m.q, m.r - 12);
+      if (sel) {   // 选中队的点可点×删除
+        ctx.strokeStyle = 'rgba(255,255,255,.95)'; ctx.lineWidth = 2.2; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(m.q - 5, m.r - 5); ctx.lineTo(m.q + 5, m.r + 5); ctx.moveTo(m.q + 5, m.r - 5); ctx.lineTo(m.q - 5, m.r + 5); ctx.stroke(); ctx.lineCap = 'butt';
+        ctx.fillStyle = 'rgba(255,255,255,.75)'; ctx.font = '9px system-ui';
+        ctx.fillText('点×删', m.q, m.r + 20);
+      }
     }
     // 蚁后（仅地下）
     if (vz === 'under') {
@@ -2123,7 +2281,7 @@ window.ANT_MAPS['2-2'] = {
       ctx.fillText('拆除：点一个建筑（返还 70% 食物到地表）', LW / 2, LH - 18);
     } else if (buildMode === 'dig') {
       ctx.fillStyle = 'rgba(232,214,170,.9)'; ctx.font = '11px system-ui';
-      ctx.fillText('挖掘：点金色⛏泥土（挨着已挖空间）→工蚁挖开；「取消挖掘」可中止', LW / 2, LH - 18);
+      ctx.fillText('挖掘：按住金色⛏泥土拖动=画一条地道，工蚁逐格自动接力挖；点一下=挖一格', LW / 2, LH - 18);
     } else if (S.pheromone) {
       ctx.fillStyle = 'rgba(190,230,150,.9)'; ctx.font = '11px system-ui';
       ctx.fillText('信息素：点地图为该队（' + 'ⅠⅡⅢⅣⅤ'[S.selSquad] + '）放信息素点', LW / 2, LH - 18);
@@ -2141,14 +2299,22 @@ window.ANT_MAPS['2-2'] = {
     }
     const soilFill = (q, r) => { const v = ((q * 53 + r * 97) % 7 + 7) % 7; return 'rgb(' + (92 + v * 4) + ',' + (66 + v * 3) + ',' + (40 + v * 2) + ')'; };
     const roomFill = (t) => { if (t.type === 'queen') return '#2c2414'; if (t.type === 'tunnel') return '#0f0a05'; if (t.type === 'worker') return '#28321c'; if (t.type === 'soldier') return '#301a13'; if (t.type === 'storage') return '#2e2818'; if (t.type === 'speed') return '#263430'; if (t.type === 'rock') return '#3a434c'; return '#1a120a'; };
-    // 逐格画正六边形（土格=棕 / 已挖·建筑=深色）
+    // 黑暗中的蚁群：未挖土格只有「紧邻已挖空间（前线）」才亮（棕土），更深处一片黑（未探索）——越挖越亮
+    const OPEN6 = [[1,0],[-1,0],[0,1],[0,-1],[1,-1],[-1,1]];
+    const neighborOpen = (q, r) => { for (const [dq, dr] of OPEN6) { const nt = tiles[hkey(q+dq, r+dr)]; if (nt && nt.type !== 'rock' && nt.type !== 'dirt') return true; } return false; };
+    // 逐格画正六边形（土格=棕 / 已挖·建筑=深色 / 深处土=黑）
     for (const [q, r] of cells) {
       const key = hkey(q, r);
       const t = tiles[key];
       const p = h2p(q, r);
       hexPath(p.x, p.y, s);
-      ctx.fillStyle = (!t || t.type === 'dirt') ? soilFill(q, r) : roomFill(t);
-      ctx.fill();
+      if (!t || t.type === 'dirt') {
+        ctx.fillStyle = neighborOpen(q, r) ? soilFill(q, r) : '#0b0806';   // 未探索的深处=黑
+        ctx.fill();
+      } else {
+        ctx.fillStyle = roomFill(t);
+        ctx.fill();
+      }
       if (t && t.type === 'rock') {   // 基岩斑点（灰岩质感）
         const h1 = ((q * 73 + r * 151) % 5 + 5) % 5;
         ctx.fillStyle = 'rgba(0,0,0,.26)';
@@ -2156,7 +2322,7 @@ window.ANT_MAPS['2-2'] = {
         ctx.beginPath(); ctx.arc(p.x + HEX * 0.24, p.y - HEX * 0.2 + (h1 % 2) * HEX * 0.3, HEX * 0.06, 0, 7); ctx.fill();
       }
       if (t && t.type !== 'dirt') {
-        if (t.type === 'queen') { drawQueen(p.x, p.y, HEX); }
+        if (t.type === 'queen') { /* 巢格仅填背景；蚁后统一在巢中心画一只（见下方） */ }
         else if ((t.type === 'worker' || t.type === 'soldier') && t.hatch && t.hatch.stage !== 'active') { drawHatchStage(p.x, p.y, t, HEX); }
         else if (t.type !== 'tunnel' && BUILD[t.type]) {
           ctx.globalAlpha = .9; ctx.font = (HEX * 0.6) + 'px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
@@ -2168,6 +2334,8 @@ window.ANT_MAPS['2-2'] = {
     // 正六边形格缝（深色细线）
     ctx.strokeStyle = 'rgba(0,0,0,.3)'; ctx.lineWidth = 1;
     for (const [q, r] of cells) { const p = h2p(q, r); hexPath(p.x, p.y, s); ctx.stroke(); }
+    // 蚁后：巢中心画一只大蚁（而非 7 格各画一只）
+    if (tiles[hkey(0, 0)] && tiles[hkey(0, 0)].type === 'queen') { const q0 = h2p(0, 0); drawQueen(q0.x, q0.y, HEX * 2.4); }
     // 挖地道模式：高亮“可挖泥土”（有暴露面：挨着已挖通道/蚁巢）
     if (!isHome && buildMode === 'dig') {
       for (const [q, r] of cells) {
@@ -2179,6 +2347,20 @@ window.ANT_MAPS['2-2'] = {
         hexPath(p2.x, p2.y, s * 0.82); ctx.stroke(); ctx.setLineDash([]);
         ctx.fillStyle = '#ffe6a8'; ctx.font = (HEX * 0.5) + 'px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         ctx.fillText('⛏', p2.x, p2.y); ctx.textBaseline = 'alphabetic';
+      }
+    }
+    // 挖掘进度/排队：有 .dig 的格画黄环（progress 0=排队待挖，逐格自动接力时进度环填满）
+    if (!isHome) {
+      for (const key in tiles) {
+        const td = tiles[key]; if (!td || !td.dig) continue;
+        const [q, r] = key.split(',').map(Number);
+        const p3 = h2p(q, r);
+        const frac = Math.max(0, Math.min(1, td.dig.progress / td.dig.need));
+        ctx.strokeStyle = 'rgba(255,205,90,.4)'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(p3.x, p3.y, s * 0.62, 0, 6.2832); ctx.stroke();
+        if (frac > 0.02) { ctx.strokeStyle = 'rgba(255,225,140,.95)'; ctx.lineWidth = 3;
+          ctx.beginPath(); ctx.arc(p3.x, p3.y, s * 0.62, -Math.PI / 2, -Math.PI / 2 + frac * 6.2832); ctx.stroke(); }
+        else { ctx.fillStyle = 'rgba(255,225,140,.75)'; ctx.beginPath(); ctx.arc(p3.x, p3.y, 2.5, 0, 6.2832); ctx.fill(); }
       }
     }
   }
@@ -2333,7 +2515,7 @@ window.ANT_MAPS['2-2'] = {
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     gestureMax = Math.max(gestureMax, pointers.size);
     if (pointers.size === 2) { pinchPrev = pinchDist(); pinchPrevC = pinchCentroid(); pointerDown = false; dragging = false; panStart = null; clearTimeout(pressTimer); return; }  // 双指→捏合/平移
-    pointerDown = true; dragging = false; panStart = null;
+    pointerDown = true; dragging = false; panStart = null; longPressFired = false;
     const { x, y } = logicalTouch(e);
     downX = x; downY = y; downTime = Date.now();
     lastMarkerPoint = { x, y };
@@ -2344,13 +2526,19 @@ window.ANT_MAPS['2-2'] = {
         const w = s2w(downX, downY);
         const sq = S.squads[S.selSquad];
         if (sq.marker && Math.hypot(sq.marker.q - w.x, sq.marker.r - w.y) < 24) {
+          longPressFired = true;
           sq.marker = null; for (const a of S.ants) if (a.squad === S.selSquad) { a.goalX = null; a.goalY = null; } Sfx.tap(); toast('已删除信息素点', 900);
         } else {
           const hh = p2h(w.x, w.y);
           const tt = S.tiles[hkey(hh.q, hh.r)];
-          if (tt && (tt.type === 'soldier' || tt.type === 'worker' || tt.type === 'storage' || tt.type === 'speed')) openLevelUpgradePanel(hh.q, hh.r);
+          if (tt && (tt.type === 'soldier' || tt.type === 'worker' || tt.type === 'storage' || tt.type === 'speed')) { longPressFired = true; openLevelUpgradePanel(hh.q, hh.r); }
         }
       }, 650);
+    }
+    // 挖地道模式：按住可挖土格→开始画地道（拖动延伸，松开提交队列）
+    if (screen === 'level' && S && !S.over && buildMode === 'dig' && S.viewLayer !== 'surface') {
+      const w0 = s2w(downX, downY), h0 = p2h(w0.x, w0.y);
+      startDigDragHex(h0.q, h0.r);
     }
   });
 
@@ -2364,6 +2552,12 @@ window.ANT_MAPS['2-2'] = {
     }
     if (!pointerDown) return;
     const { x, y } = logicalTouch(e);
+    // 挖地道模式：单指拖=画地道（优先于平移/信息素拖放）
+    if (buildMode === 'dig' && screen === 'level' && S && !S.over && S.viewLayer !== 'surface') {
+      if (Math.hypot(x - downX, y - downY) > 8) dragging = true;   // 标记为拖拽，松开时不走 tap
+      if (digDrag) extendDigDrag(x, y);
+      return;
+    }
     // 已放大：单指/鼠标拖动 = 平移视角；未放大：保留原“拖放信息素”
     if (view.s > (view.baseS || view.s) + 0.001) {
       if (Math.hypot(x - downX, y - downY) > 10) {
@@ -2394,14 +2588,16 @@ window.ANT_MAPS['2-2'] = {
     panStart = null;
     pointerDown = false;
     clearTimeout(pressTimer);
+    if (digDrag) { commitDigDrag(); if (pointers.size === 0) gestureMax = 0; return; }   // 挖地道：提交拖出的队列（tap=1格、拖=N格）
     if (dragging || !wasSingleTap) { if (pointers.size === 0) gestureMax = 0; return; }
+    if (longPressFired) { longPressFired = false; if (pointers.size === 0) gestureMax = 0; return; }   // 长按已开面板（升级/拆除/删标记）→ 松手不再点按，免顶掉
     gestureMax = 0;
     const { x, y } = logicalTouch(e);
     if (x < 0 || x > LW || y < 0 || y > LH) return;
     if (screen === 'home' && home) handleHomeTap(x, y);
     else if (screen === 'level' && S && !S.over) handleLevelTap(x, y);
   });
-  canvas.addEventListener('pointercancel', (e) => { if (e.pointerId) pointers.delete(e.pointerId); pointerDown = false; clearTimeout(pressTimer); if (pointers.size === 0) gestureMax = 0; });
+  canvas.addEventListener('pointercancel', (e) => { if (e.pointerId) pointers.delete(e.pointerId); pointerDown = false; clearTimeout(pressTimer); if (digDrag) commitDigDrag(); if (pointers.size === 0) gestureMax = 0; });
 
   // 缩放：＋/－/复位 按钮 + 滚轮（捏合已在上方指针事件里处理）
   const zIn = document.getElementById('z-in'), zOut = document.getElementById('z-out'), zReset = document.getElementById('z-reset'), zPhel = document.getElementById('z-phel');
@@ -2443,16 +2639,41 @@ window.ANT_MAPS['2-2'] = {
   }
 
   function assignHatchery(q, r) {
-    const t = S.tiles[hkey(q, r)];
-    if (!t) return;
-    // 从旧队伍移除
-    S.squads.forEach((sq, i) => { if (i !== S.selSquad) sq.assigned.delete(hkey(q, r)); });
-    t.squad = S.selSquad;
-    S.squads[S.selSquad].assigned.add(hkey(q, r));
-    buildMode = null; // 分配后退出建造，方便放信息素
-    Sfx.tap();
-    toast('已分配到队伍 ' + 'ⅠⅡⅢⅣⅤ'[S.selSquad], 900);
-    refreshLevelBottom();
+    openHatcherySquadPicker(q, r);
+  }
+
+  // 点孵化室→弹“指派到哪个队”面板（Ⅰ~Ⅴ 五选一），不用先选队。隔离区=指认整区；主巢=手动指派该孵化室。
+  function openHatcherySquadPicker(q, r) {
+    const key = hkey(q, r);
+    const t = S.tiles[key];
+    if (!t || (t.type !== 'soldier' && t.type !== 'worker')) return;
+    applyZoneSquads();   // 保证 S._zones / t.squad 最新
+    const rg = (S._zones || []).find(z => z.cells.has(key));
+    const isIso = !!(rg && !rg.hasQueen);
+    const cur = (t.squad != null && t.squad >= 0) ? t.squad : 0;
+    const names = SQUAD_NAMES, cols = SQUAD_RINGS;
+    let html = '<h2>把这个' + (t.type === 'soldier' ? '兵蚁' : '工蚁') + '孵化室指派到？</h2>';
+    html += '<div class="sub">' + (isIso
+      ? '它在一个<b>隔离区</b>：选哪队，整个隔离区就归哪队（区内孵化室自动入组）。'
+      : '主巢孵化室（默认Ⅰ）：选哪队，这只就进哪队；新孵的蚁也跟着。') + '</div>';
+    html += '<div class="panel-row squads" style="gap:6px">';
+    for (let i = 0; i < 5; i++) {
+      html += `<button class="sq${cur === i ? ' on' : ''}" id="sqp-${i}" style="flex:1;border-color:${cols[i]}">${names[i]}<span class="sq-n">${S.squads[i].assigned.size}</span></button>`;
+    }
+    html += '</div><div class="sub">Ⅰ=主巢默认；Ⅱ~Ⅴ 可留给隔离区/专项队。点选即指派。</div>';
+    html += '<button class="ghost-btn" id="sqp-close">取消</button>';
+    showOverlay(html);
+    for (let i = 0; i < 5; i++) {
+      document.getElementById('sqp-' + i).onclick = () => {
+        if (isIso) S.zoneDesign[rg.hatches.slice().sort().join('|')] = i;
+        else { S.manualSquad = S.manualSquad || {}; S.manualSquad[key] = i; }
+        S.selSquad = i;
+        applyZoneSquads();
+        Sfx.tap(); hideOverlay(); refreshLevelBottom();
+        toast((isIso ? '隔离区 → ' : '孵化室 → ') + names[i] + ' 组', 1100);
+      };
+    }
+    document.getElementById('sqp-close').onclick = hideOverlay;
   }
 
   function handleLevelTap(lx, ly) {
@@ -2567,6 +2788,12 @@ window.ANT_MAPS['2-2'] = {
     newHome, showMenu, showSaves, showColorPick, enterHome, startLevel,
     levelBuildAt, levelDigAt, makeEnemy,
     orderDigAt: (q, r) => { return orderDigAt(q, r); },
+    pumpDigQueue: () => { pumpDigQueue(); },
+    startDigDragHex: (q, r) => { startDigDragHex(q, r); },
+    extendDigDragHex: (q, r) => { extendDigDragHex(q, r); },
+    commitDigDrag: () => { commitDigDrag(); },
+    get digQueue() { return S ? S.digQueue : null; },
+    get digDrag() { return digDrag; },
     cancelAllDigs() { return cancelAllDigs(); },
     exposedFace(q, r) { return exposedFace(S.tiles, q, r); },
     setBuildMode: (k) => { buildMode = k; refreshBottom(); },
@@ -2576,6 +2803,7 @@ window.ANT_MAPS['2-2'] = {
     colonyPoints: () => colonyPoints(home),
     get view() { return view; },
     h2p, p2h, s2w, w2s, hkey, applyLayerView,
+    get fit() { return fit; },
     step(sec) { if (!S) return; const n = Math.round((sec || 0) / 0.05); for (let i = 0; i < n; i++) levelUpdate(0.05); render(); },
     placeMarker(wx, wy) { if (!S) return; setSquadMarker(S.selSquad, wx, wy); },
     homeTick(sec) { if (!home) return null; const n = Math.round((sec || 0) / 0.05); for (let i = 0; i < n; i++) homeUpdate(0.05); return { food: Math.round(home.food), surface: Math.round(home.surfaceFood) }; },
@@ -2583,6 +2811,9 @@ window.ANT_MAPS['2-2'] = {
     openPanel(q, r) { if (screen === 'home' && home) openHomeTilePanel(q, r); else if (S) openLevelUpgradePanel(q, r); return document.getElementById('overlay').textContent.slice(0, 90); },
     clickDem() { const b = document.getElementById('ov-dem'); if (b) b.click(); return { surface: home ? Math.round(home.surfaceFood) : null, tile: home ? ('2,0' in home.tiles) : null }; },
     setSquad: (i) => { if (S) { S.selSquad = i; refreshLevelBottom(); } },
+    computeZones() { if (!S) return null; return computeZones(); },
+    applyZoneSquads() { if (!S) return null; applyZoneSquads(); },
+    assignHatchery(q, r) { if (!S) return null; assignHatchery(q, r); },
     render: () => render(),
     chamberRelease(key) { if (!S) return null; releaseChamber(S, key); return S; },
     chambers() { if (!S) return null; return { ids: S.chamberInterior ? Object.keys(S.chamberInterior) : null, cells: S.chamberCell ? Object.keys(S.chamberCell).length : 0, interiors: S.chamberInterior ? Object.values(S.chamberInterior).map(r => r.length) : null }; },
