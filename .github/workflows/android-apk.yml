@@ -42,12 +42,26 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      - name: Setup Android SDK (commandline tools)
+      - name: Setup Android SDK (commandline tools, auto-latest)
         run: |
           set -e
           export ANDROID_HOME="$HOME/android-sdk"
           mkdir -p "$ANDROID_HOME/cmdline-tools"
-          curl -sSLo /tmp/clt.zip https://dl.google.com/android/repository/commandlinetools-linux-11076758_latest.zip
+          # 从 Google 官方 repository 索引取 commandlinetools-linux 最新 build，避免硬编码 build 号失效
+          curl -sSLo /tmp/repo.xml https://dl.google.com/android/repository/repository2-3.xml || true
+          FILE=$(grep -oE 'commandlinetools-linux-[0-9]+_latest\.zip' /tmp/repo.xml 2>/dev/null | awk -F'-' '{print $3+0" "$0}' | sort -n | tail -1 | awk '{print $2}')
+          if [ -n "$FILE" ]; then
+            echo "downloading latest: $FILE"
+            curl -fSL -o /tmp/clt.zip "https://dl.google.com/android/repository/$FILE"
+          else
+            ok=1
+            for b in 13114758 12261745 11076708 10406996; do
+              if curl -fsLo /tmp/clt.zip "https://dl.google.com/android/repository/commandlinetools-linux-${b}_latest.zip"; then
+                echo "fallback build $b"; ok=0; break
+              fi
+            done
+            [ "$ok" = "0" ] || { echo "commandlinetools 下载失败(动态+回退均失败)"; exit 1; }
+          fi
           unzip -q /tmp/clt.zip -d "$ANDROID_HOME/cmdline-tools"
           mv "$ANDROID_HOME/cmdline-tools/cmdline-tools" "$ANDROID_HOME/cmdline-tools/latest"
           export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$PATH"
