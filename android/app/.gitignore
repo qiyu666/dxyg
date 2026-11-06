@@ -1,0 +1,7 @@
+/build
+
+# 离线资源与图标由 CI 从 web 工程生成后拷入，不入库以保持仓库轻量
+/src/main/assets/ant-kingdom.html
+/src/main/assets/map_editor.html
+/src/main/assets/maps/
+/src/main/res/mipmap-*/ic_launcher.png

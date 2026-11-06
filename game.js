@@ -997,9 +997,10 @@
     });
     bottomContent.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => {
       S.uiTab = b.dataset.tab;
+      const prevLayer = S.viewLayer;
       if (S.uiTab === 'surf') S.viewLayer = (S.viewLayer === 'surface' ? 'under' : 'surface');
       else S.viewLayer = 'under';
-      applyLayerView();
+      if (S.viewLayer !== prevLayer) applyLayerView();   // 仅地下↔地表切换才重新取景；建筑/蚂蚁/信息素之间切不动视角
       if (S.uiTab !== 'pher') S.pheromone = false;
       Sfx.tap(); refreshLevelBottom();
     });
